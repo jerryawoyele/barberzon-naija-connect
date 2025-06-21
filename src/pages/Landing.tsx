@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Scissors, MapPin, Star, Users, Clock, Shield, ChevronRight, Sparkles } from 'lucide-react';
+import { Scissors, MapPin, Star, Users, Clock, Shield, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
 
 const Landing = () => {
   const navigate = useNavigate();
