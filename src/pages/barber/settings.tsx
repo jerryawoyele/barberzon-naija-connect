@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
@@ -145,7 +144,7 @@ const BarberSettings = () => {
     <Layout userType="barber">
       <Header title="Settings" />
       
-      <div className="px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Shop Profile */}
         <MenuSection title="Shop Profile">
           <div className="p-4">

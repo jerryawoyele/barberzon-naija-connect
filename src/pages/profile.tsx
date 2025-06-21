@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
@@ -112,7 +113,7 @@ const ProfilePage = () => {
     <Layout userType="customer">
       <Header title="Profile" />
       
-      <div className="pt-20 px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Profile Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6 animate-fade-in">
           <div className="flex items-center space-x-4">
