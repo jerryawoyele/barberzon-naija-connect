@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useRouter } from 'next/router';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Calendar, Wallet, Bell, User, BarChart3, Users, CreditCard, Settings } from 'lucide-react';
 
 interface LayoutProps {
@@ -9,7 +9,8 @@ interface LayoutProps {
 }
 
 const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
-  const router = useRouter();
+  const navigate = useNavigate();
+  const location = useLocation();
   
   const customerNavItems = [
     { icon: Home, label: 'Home', path: '/' },
@@ -40,12 +41,12 @@ const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
         <div className="flex justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = router.pathname === item.path;
+            const isActive = location.pathname === item.path;
             
             return (
               <button
                 key={item.path}
-                onClick={() => router.push(item.path)}
+                onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center px-3 py-2 rounded-lg transition-colors ${
                   isActive 
                     ? 'text-green-700 bg-green-50' 
