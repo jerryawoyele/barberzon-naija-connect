@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { Bell, Calendar, DollarSign, Star, Gift, Settings, Trash2, MarkAsRead } from 'lucide-react';
+import { Bell, Calendar, DollarSign, Star, Gift, Settings, Trash2, MailOpen } from 'lucide-react';
 
 const NotificationsPage = () => {
   const [filter, setFilter] = useState('all');
@@ -125,7 +125,7 @@ const NotificationsPage = () => {
         {/* Mark all as read button */}
         {filteredNotifications.filter(n => !n.read).length > 0 && (
           <button className="w-full py-3 bg-green-50 text-green-700 rounded-xl font-medium hover:bg-green-100 transition-colors">
-            <MarkAsRead size={16} className="inline-block mr-2" />
+            <MailOpen size={16} className="inline-block mr-2" />
             Mark all as read
           </button>
         )}
