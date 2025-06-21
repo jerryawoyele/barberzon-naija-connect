@@ -13,7 +13,7 @@ const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
   const location = useLocation();
   
   const customerNavItems = [
-    { icon: Home, label: 'Home', path: '/' },
+    { icon: Home, label: 'Home', path: '/home' },
     { icon: Calendar, label: 'Bookings', path: '/bookings' },
     { icon: Wallet, label: 'Wallet', path: '/wallet' },
     { icon: Bell, label: 'Notifications', path: '/notifications' },
@@ -37,7 +37,7 @@ const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
       </main>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 backdrop-blur-lg bg-white/95 shadow-lg">
         <div className="flex justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -47,10 +47,10 @@ const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center px-3 py-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center px-3 py-2 rounded-xl transition-all duration-300 transform hover:scale-105 ${
                   isActive 
-                    ? 'text-green-700 bg-green-50' 
-                    : 'text-gray-500 hover:text-green-600'
+                    ? 'text-green-700 bg-green-50 shadow-md' 
+                    : 'text-gray-500 hover:text-green-600 hover:bg-gray-50'
                 }`}
               >
                 <Icon size={20} />

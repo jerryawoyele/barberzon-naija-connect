@@ -28,13 +28,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/landing" element={<Landing />} />
+          {/* Landing Page as Index */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
           {/* Customer Routes */}
-          <Route path="/" element={<Index />} />
+          <Route path="/home" element={<Index />} />
           <Route path="/bookings" element={<BookingsPage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />

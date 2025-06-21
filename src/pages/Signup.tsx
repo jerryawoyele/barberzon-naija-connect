@@ -26,7 +26,7 @@ const Signup = () => {
     }
     console.log('Signup attempt:', formData);
     // TODO: Implement actual signup logic
-    navigate('/');
+    navigate('/home');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,165 +37,164 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex flex-col">
-      {/* Header */}
-      <header className="px-4 py-6 flex items-center">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg px-4 py-6 flex items-center shadow-sm">
         <button
           onClick={() => navigate(-1)}
-          className="mr-3 p-2 hover:bg-gray-100 rounded-lg"
+          className="mr-3 p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
         >
           <ArrowLeft size={24} className="text-gray-600" />
         </button>
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-green-700 rounded-lg flex items-center justify-center">
-            <Scissors className="text-white" size={20} />
+          <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-green-700 rounded-xl flex items-center justify-center shadow-lg">
+            <Scissors className="text-white" size={22} />
           </div>
-          <span className="text-xl font-bold text-green-700">Barberzon</span>
+          <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">Barberzon</span>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center px-4 py-8 pt-32">
+        <div className="w-full max-w-md animate-fade-in">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-            <p className="text-gray-600">Join thousands of happy customers</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h1>
+            <p className="text-gray-600 text-lg">Join thousands of happy customers</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                name="fullName"
-                type="text"
-                value={formData.fullName}
-                onChange={handleInputChange}
-                placeholder="Enter your full name"
-                className="mt-1"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="Enter your email"
-                className="mt-1"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="phoneNumber">Phone Number</Label>
-              <Input
-                id="phoneNumber"
-                name="phoneNumber"
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={handleInputChange}
-                placeholder="+234 800 000 0000"
-                className="mt-1"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <div className="relative mt-1">
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-gray-700 font-medium">Full Name</Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  value={formData.fullName}
                   onChange={handleInputChange}
-                  placeholder="Create a strong password"
-                  className="pr-10"
+                  placeholder="Enter your full name"
+                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative mt-1">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                 <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
                   onChange={handleInputChange}
-                  placeholder="Confirm your password"
-                  className="pr-10"
+                  placeholder="Enter your email"
+                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
               </div>
-            </div>
 
-            <div className="flex items-start">
-              <input 
-                type="checkbox" 
-                className="rounded border-gray-300 text-green-700 focus:ring-green-700 mt-1" 
-                required 
-              />
-              <span className="ml-2 text-sm text-gray-600">
-                I agree to the{' '}
-                <button type="button" className="text-green-700 hover:text-green-800">
-                  Terms of Service
-                </button>
-                {' '}and{' '}
-                <button type="button" className="text-green-700 hover:text-green-800">
-                  Privacy Policy
-                </button>
-              </span>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber" className="text-gray-700 font-medium">Phone Number</Label>
+                <Input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  placeholder="+234 800 000 0000"
+                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                  required
+                />
+              </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-green-700 hover:bg-green-800"
-              size="lg"
-            >
-              Create Account
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Create a strong password"
+                    className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 pr-12 transition-all duration-200"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
 
-          <div className="mt-8 text-center">
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    placeholder="Confirm your password"
+                    className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 pr-12 transition-all duration-200"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <input 
+                  type="checkbox" 
+                  className="rounded border-gray-300 text-green-600 focus:ring-green-500 mt-1 transition-colors" 
+                  required 
+                />
+                <span className="ml-2 text-sm text-gray-600">
+                  I agree to the{' '}
+                  <button type="button" className="text-green-600 hover:text-green-700 transition-colors">
+                    Terms of Service
+                  </button>
+                  {' '}and{' '}
+                  <button type="button" className="text-green-600 hover:text-green-700 transition-colors">
+                    Privacy Policy
+                  </button>
+                </span>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-lg font-medium rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+              >
+                Create Account
+              </Button>
+            </form>
+          </div>
+
+          <div className="mt-8 text-center space-y-4">
             <p className="text-gray-600">
               Already have an account?{' '}
               <button
                 onClick={() => navigate('/login')}
-                className="text-green-700 hover:text-green-800 font-medium"
+                className="text-green-600 hover:text-green-700 font-medium transition-colors"
               >
                 Sign in here
               </button>
             </p>
-          </div>
-
-          <div className="mt-6 text-center">
+            
             <p className="text-sm text-gray-500">
               Want to join as a barber?{' '}
               <button
                 onClick={() => navigate('/barber/signup')}
-                className="text-green-700 hover:text-green-800 font-medium"
+                className="text-green-600 hover:text-green-700 font-medium transition-colors"
               >
                 Barber Signup
               </button>
