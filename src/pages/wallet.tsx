@@ -1,12 +1,11 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Eye, EyeOff, Smartphone, Building } from 'lucide-react';
+import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, Eye, EyeOff, CreditCard, Banknote, Gift } from 'lucide-react';
 
 const WalletPage = () => {
   const [showBalance, setShowBalance] = useState(true);
-  const [activeTab, setActiveTab] = useState('transactions');
+  const [selectedTab, setSelectedTab] = useState('overview');
 
   const balance = 125750;
   
@@ -58,7 +57,7 @@ const WalletPage = () => {
       name: 'First Bank Transfer',
       last4: '0123',
       isDefault: false,
-      icon: Building
+      icon: Banknote
     },
     {
       id: '3',
@@ -66,7 +65,7 @@ const WalletPage = () => {
       name: 'USSD Payment',
       last4: '*737#',
       isDefault: false,
-      icon: Smartphone
+      icon: Gift
     }
   ];
 
@@ -130,7 +129,7 @@ const WalletPage = () => {
     <Layout userType="customer">
       <Header title="Wallet" />
       
-      <div className="px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Balance Card */}
         <div className="bg-gradient-to-r from-green-700 to-green-800 rounded-xl p-6 mb-6 text-white">
           <div className="flex items-center justify-between mb-4">
@@ -171,13 +170,13 @@ const WalletPage = () => {
           </div>
           <div className="bg-white rounded-xl p-4 text-center border border-gray-200">
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Building className="text-yellow-600" size={24} />
+              <Banknote className="text-yellow-600" size={24} />
             </div>
             <p className="text-sm font-medium text-gray-900">Bank Transfer</p>
           </div>
           <div className="bg-white rounded-xl p-4 text-center border border-gray-200">
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Smartphone className="text-purple-600" size={24} />
+              <Gift className="text-purple-600" size={24} />
             </div>
             <p className="text-sm font-medium text-gray-900">USSD</p>
           </div>
@@ -186,9 +185,19 @@ const WalletPage = () => {
         {/* Tab Navigation */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
           <button
-            onClick={() => setActiveTab('transactions')}
+            onClick={() => setSelectedTab('overview')}
             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'transactions' 
+              selectedTab === 'overview' 
+                ? 'bg-white text-green-700 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setSelectedTab('transactions')}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              selectedTab === 'transactions' 
                 ? 'bg-white text-green-700 shadow-sm' 
                 : 'text-gray-600'
             }`}
@@ -196,9 +205,9 @@ const WalletPage = () => {
             Transactions
           </button>
           <button
-            onClick={() => setActiveTab('methods')}
+            onClick={() => setSelectedTab('methods')}
             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'methods' 
+              selectedTab === 'methods' 
                 ? 'bg-white text-green-700 shadow-sm' 
                 : 'text-gray-600'
             }`}
@@ -208,7 +217,14 @@ const WalletPage = () => {
         </div>
 
         {/* Content */}
-        {activeTab === 'transactions' && (
+        {selectedTab === 'overview' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-900 mb-4">Overview</h3>
+            <p className="text-gray-500">This is the overview section.</p>
+          </div>
+        )}
+
+        {selectedTab === 'transactions' && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="font-semibold text-gray-900 mb-4">Recent Transactions</h3>
             {transactions.length > 0 ? (
@@ -225,7 +241,7 @@ const WalletPage = () => {
           </div>
         )}
 
-        {activeTab === 'methods' && (
+        {selectedTab === 'methods' && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Payment Methods</h3>

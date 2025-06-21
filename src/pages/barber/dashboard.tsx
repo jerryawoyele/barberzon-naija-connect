@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
@@ -110,7 +109,7 @@ const BarberDashboard = () => {
         }
       />
       
-      <div className="px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Shop Status */}
         <div className="bg-gradient-to-r from-green-700 to-green-800 rounded-xl p-6 mb-6 text-white">
           <div className="flex items-center justify-between mb-4">

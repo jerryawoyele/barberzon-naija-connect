@@ -12,6 +12,8 @@ import BookingsPage from "./pages/bookings";
 import WalletPage from "./pages/wallet";
 import NotificationsPage from "./pages/notifications";
 import ProfilePage from "./pages/profile";
+import BarberLogin from "./pages/barber/login";
+import BarberSignup from "./pages/barber/signup";
 import BarberDashboard from "./pages/barber/dashboard";
 import BarberAppointments from "./pages/barber/appointments";
 import BarberCustomers from "./pages/barber/customers";
@@ -40,7 +42,11 @@ const App = () => (
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           
-          {/* Barber Routes */}
+          {/* Barber Auth Routes */}
+          <Route path="/barber/login" element={<BarberLogin />} />
+          <Route path="/barber/signup" element={<BarberSignup />} />
+          
+          {/* Barber Dashboard Routes */}
           <Route path="/barber/dashboard" element={<BarberDashboard />} />
           <Route path="/barber/appointments" element={<BarberAppointments />} />
           <Route path="/barber/customers" element={<BarberCustomers />} />

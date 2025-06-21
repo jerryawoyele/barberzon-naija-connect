@@ -1,63 +1,76 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Scissors, Star, Clock, Shield, ArrowRight, Sparkles } from 'lucide-react';
+import { Scissors, MapPin, Star, Users, Clock, Shield, ChevronRight, Sparkles } from 'lucide-react';
 
 const Landing = () => {
   const navigate = useNavigate();
 
   const features = [
     {
-      icon: Scissors,
-      title: 'Expert Barbers',
-      description: 'Connect with skilled barbers in Lagos, Abuja, and Port Harcourt',
-      color: 'bg-green-100 text-green-600'
+      icon: MapPin,
+      title: 'Find Nearby Barbers',
+      description: 'Discover skilled barbers in your area with real-time availability'
     },
     {
       icon: Clock,
-      title: 'Real-time Booking',
-      description: 'Book instantly with live availability and get confirmed appointments',
-      color: 'bg-blue-100 text-blue-600'
+      title: 'Book Instantly',
+      description: 'Schedule appointments in seconds with our smart booking system'
     },
     {
       icon: Star,
       title: 'Quality Assured',
-      description: 'Rated barbers with verified reviews from real customers',
-      color: 'bg-yellow-100 text-yellow-600'
+      description: 'All barbers are verified with ratings and reviews from real customers'
     },
     {
       icon: Shield,
       title: 'Secure Payments',
-      description: 'Safe Naira payments with transparent pricing - no hidden fees',
-      color: 'bg-purple-100 text-purple-600'
+      description: 'Safe and secure payment processing with multiple payment options'
+    }
+  ];
+
+  const testimonials = [
+    {
+      name: 'Adebayo Johnson',
+      location: 'Lagos',
+      rating: 5,
+      comment: 'Best barber booking app in Nigeria! Found my regular barber here.',
+      image: 'photo-1472099645785-5658abf4ff4e'
+    },
+    {
+      name: 'Emeka Okafor',
+      location: 'Abuja',
+      rating: 5,
+      comment: 'As a barber, this app has doubled my customer base. Amazing!',
+      image: 'photo-1507003211169-0a1dd7228f2d'
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-100 px-4 py-4 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-200 px-4 py-4 shadow-sm">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
-          <div className="flex items-center space-x-2 animate-fade-in">
+          <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-green-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Scissors className="text-white" size={24} />
+              <Scissors className="text-white" size={22} />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">Barberzon</span>
           </div>
-          <div className="space-x-3 animate-fade-in">
+          
+          <div className="flex items-center space-x-3">
             <Button 
               variant="ghost" 
               onClick={() => navigate('/login')}
-              className="text-green-700 hover:bg-green-50 transition-all duration-300 hover:scale-105"
+              className="hover:bg-green-50 hover:text-green-700 transition-all duration-200"
             >
-              Login
+              Sign In
             </Button>
             <Button 
               onClick={() => navigate('/signup')}
               className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 transition-all duration-300 hover:scale-105 shadow-lg"
             >
-              Sign Up
+              Get Started
             </Button>
           </div>
         </div>
@@ -107,38 +120,93 @@ const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section className="px-4 py-20 bg-white">
+      <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16 animate-fade-in">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in">
               Why Choose Barberzon?
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Experience the future of barber booking with our innovative platform
+            <p className="text-xl text-gray-600 animate-fade-in">
+              The smartest way to book barber appointments in Nigeria
             </p>
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div 
-                  key={index} 
-                  className="text-center group hover:transform hover:scale-105 transition-all duration-300 animate-fade-in p-6 rounded-2xl hover:shadow-xl hover:bg-gray-50"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className={`w-20 h-20 ${feature.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                    <Icon size={32} />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    {feature.description}
-                  </p>
+            {features.map((feature, index) => (
+              <div 
+                key={index}
+                className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 hover:scale-105 animate-fade-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+                  <feature.icon className="text-green-600" size={28} />
                 </div>
-              );
-            })}
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                <p className="text-gray-600">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-20 px-4 bg-gradient-to-r from-green-600 to-green-700">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="animate-fade-in">
+            <Sparkles className="mx-auto text-green-200 mb-6" size={48} />
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Hear from our satisfied customers
+            </h2>
+            <div className="grid grid-cols-2 gap-8">
+              {testimonials.map((testimonial, index) => (
+                <div 
+                  key={index}
+                  className="animate-fade-in hover:transform hover:scale-110 transition-all duration-300"
+                  style={{ animationDelay: `${index * 0.2}s` }}
+                >
+                  <div className="flex items-center space-x-4">
+                    <img src={testimonial.image} alt={testimonial.name} className="w-16 h-16 rounded-full" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{testimonial.name}</h3>
+                      <p className="text-gray-600">{testimonial.location}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-gray-600">{testimonial.comment}</p>
+                    <div className="mt-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-green-100 rounded-full" />
+                        <span className="text-green-600">{testimonial.rating}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA for Barbers */}
+      <section className="py-20 px-4 bg-gradient-to-r from-green-600 to-green-700">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="animate-fade-in">
+            <Sparkles className="mx-auto text-green-200 mb-6" size={48} />
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Are You a Barber?
+            </h2>
+            <p className="text-xl text-green-100 mb-8">
+              Join thousands of barbers earning more with Barberzon
+            </p>
+            <div className="flex items-center justify-center space-x-4">
+              <Button 
+                onClick={() => navigate('/barber/signup')}
+                className="bg-white text-green-700 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+              >
+                Join as a Barber
+                <ChevronRight size={20} className="ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </section>

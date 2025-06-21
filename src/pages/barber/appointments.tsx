@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
@@ -197,7 +196,7 @@ const BarberAppointments = () => {
     <Layout userType="barber">
       <Header title="Appointments" />
       
-      <div className="px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Date Selector */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
           <div className="flex items-center justify-between mb-4">

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
@@ -201,7 +200,7 @@ const BarberCustomers = () => {
     <Layout userType="barber">
       <Header title="Customers" />
       
-      <div className="px-4 py-4">
+      <div className="pt-24 px-4 py-4">
         {/* Search and Filter */}
         <div className="space-y-4 mb-6">
           <div className="relative">

@@ -1,240 +1,134 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { Bell, Calendar, CreditCard, Star, Gift, Settings, Check, X } from 'lucide-react';
+import { Bell, Calendar, DollarSign, Star, Gift, Settings, Trash2, MarkAsRead } from 'lucide-react';
 
 const NotificationsPage = () => {
-  const [notifications, setNotifications] = useState([
+  const [filter, setFilter] = useState('all');
+
+  const notifications = [
     {
       id: '1',
       type: 'booking',
-      title: 'Booking Confirmed',
-      message: 'Your appointment with Emeka Okafor at Kings Cut is confirmed for June 22, 2:00 PM',
+      message: 'Your appointment with Kings Cut Barber Shop has been confirmed for tomorrow at 10:00 AM.',
       time: '2 hours ago',
-      isRead: false,
-      icon: Calendar,
-      color: 'green'
+      read: false,
+      icon: Calendar
     },
     {
       id: '2',
       type: 'payment',
-      title: 'Payment Successful',
-      message: 'Payment of ₦5,400 (inc. ₦400 platform fee) has been processed successfully',
-      time: '3 hours ago',
-      isRead: false,
-      icon: CreditCard,
-      color: 'blue'
+      message: 'Your wallet has been credited with ₦4,968 for a completed service.',
+      time: '5 hours ago',
+      read: true,
+      icon: DollarSign
     },
     {
       id: '3',
-      type: 'reminder',
-      title: 'Appointment Reminder',
-      message: 'Don\'t forget your appointment tomorrow at 2:00 PM with Emeka Okafor',
+      type: 'review',
+      message: 'John Adebayo left you a 5-star review: "Excellent haircut and great service!"',
       time: '1 day ago',
-      isRead: true,
-      icon: Bell,
-      color: 'yellow'
+      read: true,
+      icon: Star
     },
     {
       id: '4',
-      type: 'review',
-      title: 'Rate Your Experience',
-      message: 'How was your recent visit to Classic Cuts? Leave a review to help others',
-      time: '2 days ago',
-      isRead: true,
-      icon: Star,
-      color: 'purple'
+      type: 'loyalty',
+      message: 'You have earned 240 loyalty points for your recent bookings.',
+      time: '3 days ago',
+      read: true,
+      icon: Gift
     },
     {
       id: '5',
-      type: 'promotion',
-      title: 'Weekend Special!',
-      message: 'Book any weekend appointment and get 15% off your next visit',
-      time: '3 days ago',
-      isRead: true,
-      icon: Gift,
-      color: 'red'
+      type: 'app',
+      message: 'New app settings available. Update your preferences now.',
+      time: '1 week ago',
+      read: true,
+      icon: Settings
     }
-  ]);
+  ];
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const getIconColor = (color: string) => {
-    const colors = {
-      green: 'bg-green-100 text-green-600',
-      blue: 'bg-blue-100 text-blue-600',
-      yellow: 'bg-yellow-100 text-yellow-600',
-      purple: 'bg-purple-100 text-purple-600',
-      red: 'bg-red-100 text-red-600'
-    };
-    return colors[color as keyof typeof colors] || 'bg-gray-100 text-gray-600';
-  };
-
-  const NotificationItem = ({ notification }: { notification: any }) => {
-    const Icon = notification.icon;
-    
-    return (
-      <div className={`p-4 border-b border-gray-100 ${!notification.isRead ? 'bg-green-50' : 'bg-white'}`}>
-        <div className="flex items-start space-x-3">
-          <div className={`p-2 rounded-full ${getIconColor(notification.color)}`}>
-            <Icon size={20} />
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 pr-2">
-                <h3 className={`font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
-                  {notification.title}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-                  {notification.message}
-                </p>
-                <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
-              </div>
-              
-              <div className="flex space-x-1 ml-2">
-                {!notification.isRead && (
-                  <button
-                    onClick={() => markAsRead(notification.id)}
-                    className="p-1 hover:bg-green-100 rounded-full"
-                    title="Mark as read"
-                  >
-                    <Check size={16} className="text-green-600" />
-                  </button>
-                )}
-                <button
-                  onClick={() => removeNotification(notification.id)}
-                  className="p-1 hover:bg-red-100 rounded-full"
-                  title="Remove"
-                >
-                  <X size={16} className="text-red-600" />
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {!notification.isRead && (
-            <div className="w-2 h-2 bg-green-600 rounded-full mt-2"></div>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const filteredNotifications = notifications.filter(notification => {
+    if (filter === 'all') return true;
+    return notification.type === filter;
+  });
 
   return (
     <Layout userType="customer">
-      <Header 
-        title="Notifications" 
-        rightAction={
-          <button className="p-2 hover:bg-gray-100 rounded-lg">
-            <Settings size={20} className="text-gray-600" />
-          </button>
-        }
-      />
+      <Header title="Notifications" />
       
-      <div className="px-4 py-4">
-        {/* Summary Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-              <p className="text-sm text-gray-600">
-                {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
-              </p>
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100"
-              >
-                Mark All Read
-              </button>
-            )}
-          </div>
+      <div className="pt-24 px-4 py-4">
+        {/* Filter Tabs */}
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-6 overflow-x-auto">
+          {['all', 'booking', 'payment', 'review', 'loyalty', 'app'].map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilter(type)}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                filter === type 
+                  ? 'bg-white text-green-700 shadow-sm' 
+                  : 'text-gray-600'
+              }`}
+            >
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+              {type === 'all' && ` (${notifications.length})`}
+              {type !== 'all' && ` (${notifications.filter(n => n.type === type).length})`}
+            </button>
+          ))}
         </div>
 
         {/* Notifications List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <NotificationItem key={notification.id} notification={notification} />
-            ))
+        <div>
+          {filteredNotifications.length > 0 ? (
+            filteredNotifications.map((notification) => {
+              const Icon = notification.icon || Bell;
+              return (
+                <div 
+                  key={notification.id}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-xl bg-green-50 text-green-600">
+                        <Icon size={20} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{notification.message}</p>
+                        <p className="text-sm text-gray-600">{notification.time}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      {!notification.read && (
+                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                          New
+                        </span>
+                      )}
+                      <button className="p-1 hover:bg-gray-100 rounded-full">
+                        <Trash2 size={16} className="text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : (
             <div className="text-center py-12">
               <Bell className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No notifications</h3>
-              <p className="text-gray-600">You're all caught up! We'll notify you of any updates.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No notifications found</h3>
+              <p className="text-gray-600">You're all caught up!</p>
             </div>
           )}
         </div>
 
-        {/* Notification Settings */}
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h3 className="font-semibold text-gray-900 mb-4">Notification Preferences</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">Booking Updates</p>
-                <p className="text-sm text-gray-600">Confirmations, reminders, and changes</p>
-              </div>
-              <div className="w-12 h-6 bg-green-600 rounded-full relative">
-                <div className="absolute right-0 top-0 w-6 h-6 bg-white rounded-full shadow-sm"></div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">Payment Alerts</p>
-                <p className="text-sm text-gray-600">Transaction confirmations and receipts</p>
-              </div>
-              <div className="w-12 h-6 bg-green-600 rounded-full relative">
-                <div className="absolute right-0 top-0 w-6 h-6 bg-white rounded-full shadow-sm"></div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">Promotions</p>
-                <p className="text-sm text-gray-600">Special offers and discounts</p>
-              </div>
-              <div className="w-12 h-6 bg-gray-300 rounded-full relative">
-                <div className="absolute left-0 top-0 w-6 h-6 bg-white rounded-full shadow-sm"></div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">SMS Backup</p>
-                <p className="text-sm text-gray-600">Important notifications via SMS</p>
-              </div>
-              <div className="w-12 h-6 bg-green-600 rounded-full relative">
-                <div className="absolute right-0 top-0 w-6 h-6 bg-white rounded-full shadow-sm"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Mark all as read button */}
+        {filteredNotifications.filter(n => !n.read).length > 0 && (
+          <button className="w-full py-3 bg-green-50 text-green-700 rounded-xl font-medium hover:bg-green-100 transition-colors">
+            <MarkAsRead size={16} className="inline-block mr-2" />
+            Mark all as read
+          </button>
+        )}
       </div>
     </Layout>
   );
