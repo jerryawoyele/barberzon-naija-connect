@@ -4,32 +4,73 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scissors, ArrowLeft, Eye, EyeOff, Store, MapPin, Phone, User } from 'lucide-react';
+import { Scissors, ArrowLeft, Eye, EyeOff, Store, Loader2 } from 'lucide-react';
+import { authService } from '@/services';
+import { useToast } from '@/hooks/use-toast';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 const BarberSignup = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    shopName: '',
-    ownerName: '',
     email: '',
-    phoneNumber: '',
-    address: '',
-    city: '',
     password: '',
     confirmPassword: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      toast({
+        title: 'Password mismatch',
+        description: 'Passwords do not match. Please try again.',
+        variant: 'destructive'
+      });
       return;
     }
-    console.log('Barber signup attempt:', formData);
-    // TODO: Implement actual barber signup logic
-    navigate('/barber/dashboard');
+    
+    setIsLoading(true);
+    
+    try {
+      // Remove confirmPassword from the data sent to the API
+      const { confirmPassword, ...registerData } = formData;
+      
+      // Request email verification instead of direct registration
+      const response = await authService.requestEmailVerification(formData.email);
+      
+      if (response.status === 'success') {
+        toast({
+          title: 'Verification email sent',
+          description: 'Please check your inbox to complete registration',
+          variant: 'default'
+        });
+        
+        // Store registration data in localStorage for later use
+        localStorage.setItem('pendingBarberRegistration', JSON.stringify(registerData));
+        
+        // Navigate to verification pending page
+        navigate('/verification-pending', { state: { email: formData.email } });
+      } else {
+        toast({
+          title: 'Registration failed',
+          description: response.message || 'Please check your information and try again',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: 'Registration failed',
+        description: 'An error occurred during registration. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,40 +112,6 @@ const BarberSignup = () => {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="shopName" className="text-gray-700 font-medium flex items-center">
-                  <Store size={16} className="mr-2" />
-                  Shop Name
-                </Label>
-                <Input
-                  id="shopName"
-                  name="shopName"
-                  type="text"
-                  value={formData.shopName}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Kings Cut Barber Shop"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ownerName" className="text-gray-700 font-medium flex items-center">
-                  <User size={16} className="mr-2" />
-                  Owner's Full Name
-                </Label>
-                <Input
-                  id="ownerName"
-                  name="ownerName"
-                  type="text"
-                  value={formData.ownerName}
-                  onChange={handleInputChange}
-                  placeholder="Enter your full name"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 font-medium">Business Email</Label>
                 <Input
                   id="email"
@@ -113,54 +120,6 @@ const BarberSignup = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="your.shop@email.com"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-gray-700 font-medium flex items-center">
-                  <Phone size={16} className="mr-2" />
-                  Phone Number
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  placeholder="+234 800 000 0000"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address" className="text-gray-700 font-medium flex items-center">
-                  <MapPin size={16} className="mr-2" />
-                  Shop Address
-                </Label>
-                <Input
-                  id="address"
-                  name="address"
-                  type="text"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  placeholder="Street address"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="city" className="text-gray-700 font-medium">City</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  type="text"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Lagos, Abuja, Port Harcourt"
                   className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   required
                 />
@@ -229,13 +188,37 @@ const BarberSignup = () => {
                   </button>
                 </span>
               </div>
+              
+              <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                <p>After signing up, we'll send a verification link to your email. You'll need to verify your email before you can log in and complete your shop profile.</p>
+              </div>
 
               <Button 
                 type="submit" 
                 className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-lg font-medium rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+                disabled={isLoading}
               >
-                Register My Shop
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : 'Register My Shop'}
               </Button>
+              
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                </div>
+              </div>
+              
+              <GoogleAuthButton 
+                userType="barber" 
+                onSuccess={() => navigate('/barber/dashboard')}
+              />
             </form>
           </div>
 

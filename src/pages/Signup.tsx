@@ -5,28 +5,72 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Scissors, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { authService } from '@/services';
+import { useToast } from '@/hooks/use-toast';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
     email: '',
-    phoneNumber: '',
     password: '',
     confirmPassword: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match');
+      toast({
+        title: 'Password mismatch',
+        description: 'Passwords do not match. Please try again.',
+        variant: 'destructive'
+      });
       return;
     }
-    console.log('Signup attempt:', formData);
-    // TODO: Implement actual signup logic
-    navigate('/home');
+    
+    setIsLoading(true);
+    
+    try {
+      // Remove confirmPassword from the data sent to the API
+      const { confirmPassword, ...registerData } = formData;
+      
+      // Request email verification instead of direct registration
+      const response = await authService.requestEmailVerification(formData.email);
+      
+      if (response.status === 'success') {
+        toast({
+          title: 'Verification email sent',
+          description: 'Please check your inbox to complete registration',
+          variant: 'default'
+        });
+        
+        // Store registration data in localStorage for later use
+        localStorage.setItem('pendingRegistration', JSON.stringify(registerData));
+        
+        // Navigate to verification pending page
+        navigate('/verification-pending', { state: { email: formData.email } });
+      } else {
+        toast({
+          title: 'Registration failed',
+          description: response.message || 'Please check your information and try again',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: 'Registration failed',
+        description: 'An error occurred during registration. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,20 +109,6 @@ const Signup = () => {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-gray-700 font-medium">Full Name</Label>
-                <Input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  placeholder="Enter your full name"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                 <Input
                   id="email"
@@ -87,20 +117,6 @@ const Signup = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="Enter your email"
-                  className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-gray-700 font-medium">Phone Number</Label>
-                <Input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  placeholder="+234 800 000 0000"
                   className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   required
                 />
@@ -169,13 +185,32 @@ const Signup = () => {
                   </button>
                 </span>
               </div>
+              
+              <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                <p>After signing up, we'll send a verification link to your email. You'll need to verify your email before you can log in.</p>
+              </div>
 
               <Button 
                 type="submit" 
                 className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-lg font-medium rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+                disabled={isLoading}
               >
-                Create Account
+                {isLoading ? 'Creating Account...' : 'Create Account'}
               </Button>
+              
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                </div>
+              </div>
+              
+              <GoogleAuthButton 
+                userType="customer" 
+                onSuccess={() => navigate('/home')}
+              />
             </form>
           </div>
 

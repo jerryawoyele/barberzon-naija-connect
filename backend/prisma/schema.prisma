@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model Customer {
+  id                 String     @id @default(uuid())
+  phoneNumber        String     @unique
+  email              String?    @unique
+  password           String
+  fullName           String
+  profileImage       String?
+  locationLat        Float?
+  locationLng        Float?
+  favoriteShops      Shop[]     @relation("CustomerFavorites")
+  bookingPreferences Json?
+  loyaltyPoints      Int        @default(0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  bookings           Booking[]
+  reviews            Review[]
+  wallet             Wallet?
+  transactions       Transaction[]
+  paymentMethods     PaymentMethod[]
+  notifications      Notification[]
+  pushTokens         PushToken[]
+}
+
+model Barber {
+  id            String     @id @default(uuid())
+  shopId        String
+  shop          Shop       @relation(fields: [shopId], references: [id])
+  fullName      String
+  phoneNumber   String     @unique
+  email         String?    @unique
+  password      String
+  profileImage  String?
+  specialties   String[]
+  hourlyRate    Float
+  rating        Float      @default(0)
+  totalReviews  Int        @default(0)
+  isAvailable   Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  bookings      Booking[]
+  reviews       Review[]
+  transactions  Transaction[]
+  notifications Notification[]
+  pushTokens    PushToken[]
+}
+
+model Shop {
+  id           String     @id @default(uuid())
+  ownerId      String
+  name         String
+  address      String
+  phoneNumber  String
+  email        String?
+  locationLat  Float
+  locationLng  Float
+  openingHours Json
+  services     Service[]
+  rating       Float      @default(0)
+  totalReviews Int        @default(0)
+  images       String[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  barbers      Barber[]
+  bookings     Booking[]
+  favoredBy    Customer[] @relation("CustomerFavorites")
+}
+
+// Booking System
+model Booking {
+  id            String     @id @default(uuid())
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  shopId        String
+  shop          Shop       @relation(fields: [shopId], references: [id])
+  barberId      String
+  barber        Barber     @relation(fields: [barberId], references: [id])
+  bookingDate   DateTime
+  startTime     DateTime
+  endTime       DateTime
+  services      String[]
+  totalAmount   Float
+  status        String     // pending, confirmed, completed, cancelled
+  paymentStatus String     // pending, paid, refunded
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  review        Review?
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  shopId          String
+  shop            Shop     @relation(fields: [shopId], references: [id])
+  name            String
+  description     String?
+  price           Float
+  durationMinutes Int
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  bookingId  String   @unique
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  barberId   String
+  barber     Barber   @relation(fields: [barberId], references: [id])
+  rating     Float
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Payment System
+model Wallet {
+  id         String        @id @default(uuid())
+  customerId String        @unique
+  customer   Customer      @relation(fields: [customerId], references: [id])
+  balance    Float         @default(0)
+  currency   String        @default("NGN")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  customer      Customer? @relation(fields: [userId], references: [id], map: "Transaction_customer_fkey")
+  barber        Barber?  @relation(fields: [userId], references: [id], map: "Transaction_barber_fkey")
+  type          String   // deposit, withdrawal, payment, refund
+  amount        Float
+  reference     String   @unique
+  status        String   // pending, successful, failed
+  paymentMethod String?
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PaymentMethod {
+  id            String   @id @default(uuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  type          String   // card, bank, ussd
+  cardLastFour  String?
+  bankName      String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Notification System
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  customer    Customer? @relation(fields: [userId], references: [id], map: "Notification_customer_fkey")
+  barber      Barber?  @relation(fields: [userId], references: [id], map: "Notification_barber_fkey")
+  type        String
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  dataPayload Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PushToken {
+  id          String   @id @default(uuid())
+  userId      String
+  customer    Customer? @relation(fields: [userId], references: [id], map: "PushToken_customer_fkey")
+  barber      Barber?  @relation(fields: [userId], references: [id], map: "PushToken_barber_fkey")
+  deviceToken String   @unique
+  platform    String   // ios, android, web
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -5,20 +5,58 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Scissors, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { authService } from '@/services';
+import { useToast } from '@/hooks/use-toast';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    phoneNumber: '',
     password: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', formData);
-    // TODO: Implement actual login logic
-    navigate('/home');
+    setIsLoading(true);
+    
+    try {
+      const response = await authService.login(formData);
+      
+      if (response.status === 'success') {
+        toast({
+          title: 'Login successful',
+          description: 'Welcome back to Barberzon!',
+          variant: 'default'
+        });
+        
+        // Redirect based on user role
+        if (authService.isCustomer()) {
+          navigate('/home');
+        } else {
+          // Shouldn't happen, but just in case
+          navigate('/');
+        }
+      } else {
+        toast({
+          title: 'Login failed',
+          description: response.message || 'Please check your credentials and try again',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: 'Login failed',
+        description: 'An error occurred during login. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,17 +95,18 @@ const Login = () => {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
+                <Label htmlFor="phoneNumber" className="text-gray-700 font-medium">Phone Number or Email</Label>
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="text"
+                  value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  placeholder="Enter your email"
+                  placeholder="Enter your phone number or email"
                   className="h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   required
                 />
+                <p className="text-xs text-gray-500">You can use either your registered phone number or email address</p>
               </div>
 
               <div className="space-y-2">
@@ -106,9 +145,24 @@ const Login = () => {
               <Button 
                 type="submit" 
                 className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-lg font-medium rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
+                disabled={isLoading}
               >
-                Sign In
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
+              
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                </div>
+              </div>
+              
+              <GoogleAuthButton 
+                userType="customer" 
+                onSuccess={() => navigate('/home')}
+              />
             </form>
           </div>
 

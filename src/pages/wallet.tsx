@@ -1,256 +1,326 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { paymentService } from '@/services/payment.service';
 import Layout from '@/components/Layout';
-import Header from '@/components/Header';
-import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, Eye, EyeOff, CreditCard, Banknote, Gift } from 'lucide-react';
 
-const WalletPage = () => {
-  const [showBalance, setShowBalance] = useState(true);
-  const [selectedTab, setSelectedTab] = useState('overview');
+/**
+ * Transaction interface
+ */
+interface Transaction {
+  id: string;
+  userId: string;
+  type: 'deposit' | 'withdrawal' | 'payment' | 'refund';
+  amount: number;
+  reference: string;
+  status: 'pending' | 'successful' | 'failed';
+  paymentMethod?: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-  const balance = 125750;
-  
-  const transactions = [
-    {
-      id: '1',
-      type: 'debit',
-      description: 'Haircut at Kings Cut Barber Shop',
-      amount: 5400,
-      platformFee: 400,
-      date: '2024-06-22',
-      time: '2:30 PM',
-      status: 'completed'
-    },
-    {
-      id: '2',
-      type: 'credit',
-      description: 'Wallet Top-up via GTBank',
-      amount: 50000,
-      platformFee: 0,
-      date: '2024-06-20',
-      time: '11:15 AM',
-      status: 'completed'
-    },
-    {
-      id: '3',
-      type: 'debit',
-      description: 'Beard Trim at Classic Cuts',
-      amount: 4860,
-      platformFee: 360,
-      date: '2024-06-15',
-      time: '4:20 PM',
-      status: 'completed'
+/**
+ * Wallet page component
+ */
+const WalletPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [balance, setBalance] = useState<number>(0);
+  const [currency, setCurrency] = useState<string>('NGN');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [fundAmount, setFundAmount] = useState<string>('');
+  const [fundingWallet, setFundingWallet] = useState<boolean>(false);
+  const [openFundDialog, setOpenFundDialog] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>('all');
+
+  // Fetch wallet balance and transactions
+  useEffect(() => {
+    const fetchWalletData = async () => {
+      try {
+        setLoading(true);
+        
+        // Get wallet balance
+        const walletResponse = await paymentService.getWalletBalance();
+        if (walletResponse.status === 'success') {
+          setBalance(walletResponse.data.balance);
+          setCurrency(walletResponse.data.currency);
+        }
+        
+        // Get transaction history
+        const transactionsResponse = await paymentService.getTransactionHistory();
+        if (transactionsResponse.status === 'success') {
+          setTransactions(transactionsResponse.data.transactions);
+        }
+      } catch (error) {
+        console.error('Error fetching wallet data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load wallet data. Please try again.',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchWalletData();
+  }, [toast]);
+
+  // Handle fund wallet
+  const handleFundWallet = async () => {
+    try {
+      // Validate amount
+      const amount = parseFloat(fundAmount);
+      if (isNaN(amount) || amount <= 0) {
+        toast({
+          title: 'Invalid amount',
+          description: 'Please enter a valid amount greater than zero.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      setFundingWallet(true);
+      
+      // Initialize payment
+      const response = await paymentService.fundWallet(amount);
+      
+      if (response.status === 'success') {
+        // Close dialog
+        setOpenFundDialog(false);
+        
+        // Redirect to payment page
+        window.location.href = response.data.authorization_url;
+      } else {
+        toast({
+          title: 'Payment initialization failed',
+          description: response.message || 'Failed to initialize payment. Please try again.',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error funding wallet:', error);
+      toast({
+        title: 'Error',
+        description: 'An error occurred while funding your wallet. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setFundingWallet(false);
     }
-  ];
+  };
 
-  const paymentMethods = [
-    {
-      id: '1',
-      type: 'card',
-      name: 'GTBank Debit Card',
-      last4: '4532',
-      isDefault: true,
-      icon: CreditCard
-    },
-    {
-      id: '2',
-      type: 'bank',
-      name: 'First Bank Transfer',
-      last4: '0123',
-      isDefault: false,
-      icon: Banknote
-    },
-    {
-      id: '3',
-      type: 'ussd',
-      name: 'USSD Payment',
-      last4: '*737#',
-      isDefault: false,
-      icon: Gift
+  // Filter transactions based on active tab
+  const filteredTransactions = transactions.filter(transaction => {
+    if (activeTab === 'all') return true;
+    return transaction.type === activeTab;
+  });
+
+  // Get transaction icon based on type
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return <ArrowUpRight className="h-4 w-4 text-green-500" />;
+      case 'withdrawal':
+        return <ArrowDownLeft className="h-4 w-4 text-red-500" />;
+      case 'payment':
+        return <ArrowDownLeft className="h-4 w-4 text-orange-500" />;
+      case 'refund':
+        return <ArrowUpRight className="h-4 w-4 text-blue-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  ];
+  };
 
-  const TransactionItem = ({ transaction }: { transaction: any }) => (
-    <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
-      <div className="flex items-center space-x-3">
-        <div className={`p-2 rounded-full ${
-          transaction.type === 'credit' ? 'bg-green-100' : 'bg-red-100'
-        }`}>
-          {transaction.type === 'credit' ? (
-            <ArrowDownLeft className="text-green-600" size={20} />
-          ) : (
-            <ArrowUpRight className="text-red-600" size={20} />
-          )}
-        </div>
-        <div>
-          <p className="font-medium text-gray-900">{transaction.description}</p>
-          <p className="text-sm text-gray-500">{transaction.date} • {transaction.time}</p>
-          {transaction.platformFee > 0 && (
-            <p className="text-xs text-gray-400">Platform fee: ₦{transaction.platformFee}</p>
-          )}
-        </div>
-      </div>
-      <div className="text-right">
-        <p className={`font-bold ${
-          transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
-        }`}>
-          {transaction.type === 'credit' ? '+' : '-'}₦{transaction.amount.toLocaleString()}
-        </p>
-        <p className="text-xs text-gray-500">{transaction.status}</p>
-      </div>
-    </div>
-  );
+  // Get transaction status icon
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'successful':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      default:
+        return null;
+    }
+  };
 
-  const PaymentMethodItem = ({ method }: { method: any }) => {
-    const Icon = method.icon;
-    return (
-      <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 mb-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <Icon size={20} className="text-gray-600" />
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{method.name}</p>
-            <p className="text-sm text-gray-500">****{method.last4}</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          {method.isDefault && (
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-              Default
-            </span>
-          )}
-          <button className="text-green-700 text-sm font-medium">Edit</button>
-        </div>
-      </div>
-    );
+  // Format amount with sign based on transaction type
+  const formatAmount = (amount: number, type: string) => {
+    if (type === 'deposit' || type === 'refund') {
+      return `+${amount.toLocaleString()}`;
+    } else {
+      return `-${amount.toLocaleString()}`;
+    }
+  };
+
+  // Get amount color based on transaction type
+  const getAmountColor = (type: string) => {
+    if (type === 'deposit' || type === 'refund') {
+      return 'text-green-600';
+    } else {
+      return 'text-red-600';
+    }
   };
 
   return (
-    <Layout userType="customer">
-      <Header title="Wallet" />
-      
-      <div className="pt-24 px-4 py-4">
-        {/* Balance Card */}
-        <div className="bg-gradient-to-r from-green-700 to-green-800 rounded-xl p-6 mb-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Wallet Balance</h2>
-            <button
-              onClick={() => setShowBalance(!showBalance)}
-              className="p-2 bg-white bg-opacity-20 rounded-lg"
-            >
-              {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
+    <Layout>
+      <div className="container mx-auto py-8 px-4 max-w-5xl">
+        <h1 className="text-3xl font-bold mb-8">Wallet</h1>
+        
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
           </div>
-          
-          <div className="mb-6">
-            <p className="text-3xl font-bold">
-              {showBalance ? `₦${balance.toLocaleString()}` : '₦••••••'}
-            </p>
-            <p className="text-green-100 text-sm">Available balance</p>
-          </div>
-          
-          <div className="flex space-x-3">
-            <button className="flex-1 bg-white text-green-700 py-3 px-4 rounded-lg font-medium flex items-center justify-center">
-              <Plus size={20} className="mr-2" />
-              Top Up
-            </button>
-            <button className="flex-1 bg-white bg-opacity-20 text-white py-3 px-4 rounded-lg font-medium">
-              Transfer
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 text-center border border-gray-200">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <CreditCard className="text-blue-600" size={24} />
-            </div>
-            <p className="text-sm font-medium text-gray-900">Add Card</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 text-center border border-gray-200">
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Banknote className="text-yellow-600" size={24} />
-            </div>
-            <p className="text-sm font-medium text-gray-900">Bank Transfer</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 text-center border border-gray-200">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Gift className="text-purple-600" size={24} />
-            </div>
-            <p className="text-sm font-medium text-gray-900">USSD</p>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-          <button
-            onClick={() => setSelectedTab('overview')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              selectedTab === 'overview' 
-                ? 'bg-white text-green-700 shadow-sm' 
-                : 'text-gray-600'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setSelectedTab('transactions')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              selectedTab === 'transactions' 
-                ? 'bg-white text-green-700 shadow-sm' 
-                : 'text-gray-600'
-            }`}
-          >
-            Transactions
-          </button>
-          <button
-            onClick={() => setSelectedTab('methods')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              selectedTab === 'methods' 
-                ? 'bg-white text-green-700 shadow-sm' 
-                : 'text-gray-600'
-            }`}
-          >
-            Payment Methods
-          </button>
-        </div>
-
-        {/* Content */}
-        {selectedTab === 'overview' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Overview</h3>
-            <p className="text-gray-500">This is the overview section.</p>
-          </div>
-        )}
-
-        {selectedTab === 'transactions' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Recent Transactions</h3>
-            {transactions.length > 0 ? (
-              <div>
-                {transactions.map((transaction) => (
-                  <TransactionItem key={transaction.id} transaction={transaction} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No transactions yet</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {selectedTab === 'methods' && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Payment Methods</h3>
-              <button className="text-green-700 text-sm font-medium">Add New</button>
-            </div>
-            {paymentMethods.map((method) => (
-              <PaymentMethodItem key={method.id} method={method} />
-            ))}
-          </div>
+        ) : (
+          <>
+            {/* Balance Card */}
+            <Card className="mb-8 bg-gradient-to-r from-green-600 to-green-700 text-white">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Wallet className="mr-2" /> My Wallet
+                </CardTitle>
+                <CardDescription className="text-green-100">
+                  Your current balance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">
+                  {currency} {balance.toLocaleString()}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Dialog open={openFundDialog} onOpenChange={setOpenFundDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-white text-green-700 hover:bg-green-50">
+                      <Plus className="mr-2 h-4 w-4" /> Fund Wallet
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Fund Your Wallet</DialogTitle>
+                      <DialogDescription>
+                        Enter the amount you want to add to your wallet.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount ({currency})</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          placeholder="Enter amount"
+                          value={fundAmount}
+                          onChange={(e) => setFundAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        onClick={handleFundWallet}
+                        disabled={fundingWallet}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {fundingWallet ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Proceed to Payment'
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardFooter>
+            </Card>
+            
+            {/* Transactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+                <CardDescription>
+                  View all your wallet transactions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="all" onValueChange={setActiveTab}>
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="deposit">Deposits</TabsTrigger>
+                    <TabsTrigger value="payment">Payments</TabsTrigger>
+                    <TabsTrigger value="withdrawal">Withdrawals</TabsTrigger>
+                    <TabsTrigger value="refund">Refunds</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value={activeTab}>
+                    {filteredTransactions.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        No transactions found
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredTransactions.map((transaction) => (
+                              <TableRow key={transaction.id}>
+                                <TableCell>
+                                  <div className="flex items-center">
+                                    {getTransactionIcon(transaction.type)}
+                                    <span className="ml-2 capitalize">
+                                      {transaction.type}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate">
+                                  {transaction.description || '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(transaction.createdAt).toLocaleString()}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center">
+                                    {getStatusIcon(transaction.status)}
+                                    <span className="ml-2 capitalize">
+                                      {transaction.status}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className={`text-right font-medium ${getAmountColor(transaction.type)}`}>
+                                  {formatAmount(transaction.amount, transaction.type)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </Layout>

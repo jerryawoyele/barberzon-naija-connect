@@ -1,48 +1,160 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
 import BarberCard from '@/components/BarberCard';
-import { Search, Filter, Heart } from 'lucide-react';
+import { Search, Filter, Heart, Loader2 } from 'lucide-react';
+import { shopService, authService } from '@/services';
+import { ShopWithBarbers, Barber } from '@/services/shop.service';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-
-  const favoriteBarbers = [
-    {
-      id: '1',
-      name: 'Emeka Okafor',
-      shopName: 'Kings Cut Barber Shop',
-      rating: 4.8,
-      distance: '0.5km',
-      isAvailable: true,
-      image: 'photo-1472099645785-5658abf4ff4e',
-      specialties: ['Fade', 'Beard Trim'],
-      price: 5000,
-    },
-    {
-      id: '2',
-      name: 'Ibrahim Hassan',
-      shopName: 'Classic Cuts',
-      rating: 4.9,
-      distance: '1.2km',
-      isAvailable: false,
-      image: 'photo-1507003211169-0a1dd7228f2d',
-      specialties: ['Traditional Cut', 'Hot Towel'],
-      price: 4500,
-    },
-    {
-      id: '3',
-      name: 'Tunde Adebayo',
-      shopName: 'Fresh Look Barber Shop',
-      rating: 4.7,
-      distance: '0.8km',
-      isAvailable: true,
-      image: 'photo-1500648767791-00dcc994a43e',
-      specialties: ['Afro Cut', 'Line Up'],
-      price: 5500,
-    },
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [shops, setShops] = useState<ShopWithBarbers[]>([]);
+  const [favoriteBarbers, setFavoriteBarbers] = useState<Array<{
+    id: string;
+    name: string;
+    shopName: string;
+    rating: number;
+    distance: string;
+    isAvailable: boolean;
+    image: string;
+    specialties: string[];
+    price: number;
+  }>>([]);
+  
+  // Fetch shops and barbers
+  useEffect(() => {
+    const fetchShops = async () => {
+      try {
+        setIsLoading(true);
+        const response = await shopService.getAllShops();
+        
+        if (response.status === 'success') {
+          setShops(response.data);
+          
+          // Extract barbers from shops for display
+          const allBarbers: Array<{
+            id: string;
+            name: string;
+            shopName: string;
+            rating: number;
+            distance: string;
+            isAvailable: boolean;
+            image: string;
+            specialties: string[];
+            price: number;
+          }> = [];
+          
+          response.data.forEach(shop => {
+            shop.barbers.forEach(barber => {
+              allBarbers.push({
+                id: barber.id,
+                name: barber.fullName,
+                shopName: shop.name,
+                rating: barber.rating,
+                distance: shop.distance ? `${shop.distance.toFixed(1)}km` : 'Unknown',
+                isAvailable: barber.isAvailable,
+                image: barber.profileImage || `photo-${Math.floor(Math.random() * 3) + 1}`,
+                specialties: barber.specialties,
+                price: barber.hourlyRate || 5000,
+              });
+            });
+          });
+          
+          // For now, just use the first few barbers as "favorites"
+          setFavoriteBarbers(allBarbers.slice(0, 3));
+        } else {
+          // If API is not available, use mock data
+          setFavoriteBarbers([
+            {
+              id: '1',
+              name: 'Emeka Okafor',
+              shopName: 'Kings Cut Barber Shop',
+              rating: 4.8,
+              distance: '0.5km',
+              isAvailable: true,
+              image: 'photo-1472099645785-5658abf4ff4e',
+              specialties: ['Fade', 'Beard Trim'],
+              price: 5000,
+            },
+            {
+              id: '2',
+              name: 'Ibrahim Hassan',
+              shopName: 'Classic Cuts',
+              rating: 4.9,
+              distance: '1.2km',
+              isAvailable: false,
+              image: 'photo-1507003211169-0a1dd7228f2d',
+              specialties: ['Traditional Cut', 'Hot Towel'],
+              price: 4500,
+            },
+            {
+              id: '3',
+              name: 'Tunde Adebayo',
+              shopName: 'Fresh Look Barber Shop',
+              rating: 4.7,
+              distance: '0.8km',
+              isAvailable: true,
+              image: 'photo-1500648767791-00dcc994a43e',
+              specialties: ['Afro Cut', 'Line Up'],
+              price: 5500,
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error fetching shops:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load barber shops. Please try again later.',
+          variant: 'destructive'
+        });
+        
+        // Use mock data as fallback
+        setFavoriteBarbers([
+          {
+            id: '1',
+            name: 'Emeka Okafor',
+            shopName: 'Kings Cut Barber Shop',
+            rating: 4.8,
+            distance: '0.5km',
+            isAvailable: true,
+            image: 'photo-1472099645785-5658abf4ff4e',
+            specialties: ['Fade', 'Beard Trim'],
+            price: 5000,
+          },
+          {
+            id: '2',
+            name: 'Ibrahim Hassan',
+            shopName: 'Classic Cuts',
+            rating: 4.9,
+            distance: '1.2km',
+            isAvailable: false,
+            image: 'photo-1507003211169-0a1dd7228f2d',
+            specialties: ['Traditional Cut', 'Hot Towel'],
+            price: 4500,
+          },
+          {
+            id: '3',
+            name: 'Tunde Adebayo',
+            shopName: 'Fresh Look Barber Shop',
+            rating: 4.7,
+            distance: '0.8km',
+            isAvailable: true,
+            image: 'photo-1500648767791-00dcc994a43e',
+            specialties: ['Afro Cut', 'Line Up'],
+            price: 5500,
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchShops();
+  }, [toast]);
 
   const handleBookBarber = (id: string) => {
     console.log('Booking barber:', id);
@@ -106,15 +218,22 @@ const Index = () => {
           <span className="text-green-700 text-sm font-medium">View All</span>
         </div>
 
-        <div className="space-y-4">
-          {favoriteBarbers.map((barber) => (
-            <BarberCard
-              key={barber.id}
-              {...barber}
-              onBook={handleBookBarber}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="animate-spin text-green-600 mr-2" size={24} />
+            <span className="text-gray-600">Loading barbers...</span>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {favoriteBarbers.map((barber) => (
+              <BarberCard
+                key={barber.id}
+                {...barber}
+                onBook={handleBookBarber}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Weekend Special Banner */}
         <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-xl p-4 mt-6 mb-6">
