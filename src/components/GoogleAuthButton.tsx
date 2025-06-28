@@ -6,7 +6,7 @@ import { FcGoogle } from 'react-icons/fc';
 
 interface GoogleAuthButtonProps {
   userType: 'customer' | 'barber';
-  onSuccess?: () => void;
+  onSuccess?: (user: any) => void;
   className?: string;
 }
 
@@ -102,8 +102,8 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
           variant: 'default'
         });
         
-        if (onSuccess) {
-          onSuccess();
+        if (onSuccess && response.data) {
+          onSuccess(response.data.user);
         }
       } else {
         toast({

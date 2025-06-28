@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { paymentService } from '@/services/payment.service';
+import paymentService from '@/services/payment.service';
 
 /**
  * Transaction details interface

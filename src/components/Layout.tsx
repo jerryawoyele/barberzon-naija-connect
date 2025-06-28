@@ -22,7 +22,7 @@ const Layout = ({ children, userType = 'customer' }: LayoutProps) => {
 
   const barberNavItems = [
     { icon: BarChart3, label: 'Dashboard', path: '/barber/dashboard' },
-    { icon: Calendar, label: 'Appointments', path: '/barber/appointments' },
+    { icon: Calendar, label: 'Bookings', path: '/barber/bookings' },
     { icon: Users, label: 'Customers', path: '/barber/customers' },
     { icon: CreditCard, label: 'Payments', path: '/barber/payments' },
     { icon: Settings, label: 'Settings', path: '/barber/settings' },

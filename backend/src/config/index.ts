@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -24,13 +24,10 @@ export const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   
-  // Email configuration
-  email: {
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT || '587', 10),
-    secure: process.env.EMAIL_SECURE === 'true',
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || '',
+  // SendGrid configuration
+  sendgrid: {
+    apiKey: process.env.SENDGRID_API_KEY || '',
+    fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@barberzon.com',
   },
   
   // Google OAuth configuration
@@ -63,9 +60,4 @@ export const config = {
     subject: process.env.VAPID_SUBJECT || 'mailto:info@barberzon.com',
   },
   
-  // Resend API configuration
-  resend: {
-    apiKey: process.env.RESEND_API_KEY || '',
-    fromEmail: 'Barberzon <onboarding@resend.dev>',
-  }
 };

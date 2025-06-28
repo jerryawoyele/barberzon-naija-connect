@@ -1,89 +1,141 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
 import { Calendar, Clock, User, MessageCircle, CheckCircle, XCircle, MoreHorizontal } from 'lucide-react';
+import { bookingService } from '@/services';
+import { BookingWithDetails } from '@/services/booking.service';
+import { useToast } from '@/hooks/use-toast';
 
-const BarberAppointments = () => {
-  const [selectedDate, setSelectedDate] = useState('2024-06-22');
+const BarberBookings = () => {
+
+  const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [filter, setFilter] = useState('all');
+  const [appointments, setAppointments] = useState<BookingWithDetails[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const appointments = [
-    {
-      id: '1',
-      customerName: 'John Adebayo',
-      phone: '+234 803 123 4567',
-      time: '9:00 AM',
-      duration: 45,
-      services: ['Haircut', 'Beard Trim'],
-      status: 'completed',
-      amount: 5400,
-      platformFee: 432,
-      netAmount: 4968,
-      notes: 'Regular customer, prefers medium fade',
-      image: 'photo-1472099645785-5658abf4ff4e',
-      isVIP: true
-    },
-    {
-      id: '2',
-      customerName: 'Ibrahim Mohammed',
-      phone: '+234 811 456 7890',
-      time: '10:30 AM',
-      duration: 30,
-      services: ['Traditional Cut'],
-      status: 'completed',
-      amount: 4500,
-      platformFee: 360,
-      netAmount: 4140,
-      notes: 'First-time customer',
-      image: 'photo-1507003211169-0a1dd7228f2d',
-      isVIP: false
-    },
-    {
-      id: '3',
-      customerName: 'Tunde Okafor',
-      phone: '+234 709 234 5678',
-      time: '2:00 PM',
-      duration: 40,
-      services: ['Afro Cut', 'Line Up'],
-      status: 'confirmed',
-      amount: 5500,
-      platformFee: 440,
-      netAmount: 5060,
-      notes: 'Likes his hair short on the sides',
-      image: 'photo-1500648767791-00dcc994a43e',
-      isVIP: false
-    },
-    {
-      id: '4',
-      customerName: 'Kemi Williams',
-      phone: '+234 802 345 6789',
-      time: '4:00 PM',
-      duration: 60,
-      services: ['Premium Cut', 'Hot Towel', 'Styling'],
-      status: 'pending',
-      amount: 7500,
-      platformFee: 600,
-      netAmount: 6900,
-      notes: 'Corporate client, very specific about styling',
-      image: 'photo-1494790108755-2616c9fc2647',
-      isVIP: true
-    },
-    {
-      id: '5',
-      customerName: 'Ahmed Hassan',
-      phone: '+234 701 567 8901',
-      time: '5:30 PM',
-      duration: 30,
-      services: ['Beard Trim'],
-      status: 'cancelled',
-      amount: 2500,
-      platformFee: 200,
-      netAmount: 2300,
-      notes: 'Cancelled due to emergency',
-      image: 'photo-1507003211169-0a1dd7228f2d',
-      isVIP: false
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        setIsLoading(true);
+        const response = await bookingService.getUserBookings();
+        if (response.status === 'success') {
+          setAppointments(response.data.bookings.map((booking) => ({
+            ...booking,
+            customerName: booking.customer?.fullName || 'Unknown Customer',
+            phone: booking.customer?.phoneNumber || 'N/A',
+            time: new Date(booking.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            duration: booking.services?.reduce((acc, service) => acc + (service.duration || 30), 0) || 30,
+            services: booking.services?.map(service => typeof service === 'string' ? service : service.name) || ['Service'],
+            image: booking.customer?.profileImage || 'photo-1472099645785-5658abf4ff4e',
+            isVIP: booking.customer?.fullName?.startsWith('VIP') || false,
+            netAmount: booking.totalAmount - 0.08 * booking.totalAmount,
+            platformFee: 0.08 * booking.totalAmount,
+            notes: booking.notes || '',
+            amount: booking.totalAmount
+          })));
+        }
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load appointments. Please try again.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchAppointments();
+  }, []);
+
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    try {
+      const response = await bookingService.confirmBooking(appointmentId);
+      if (response.status === 'success') {
+        toast({
+          title: 'Appointment Confirmed',
+          description: 'The appointment has been confirmed successfully.'
+        });
+        // Refresh appointments
+        const refreshResponse = await bookingService.getUserBookings();
+        if (refreshResponse.status === 'success') {
+          setAppointments(refreshResponse.data.bookings);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to confirm appointment',
+        variant: 'destructive'
+      });
     }
-  ];
+  };
+
+  const handleDeclineAppointment = async (appointmentId: string) => {
+    try {
+      const response = await bookingService.cancelBooking(appointmentId, 'Declined by barber');
+      if (response.status === 'success') {
+        toast({
+          title: 'Appointment Declined',
+          description: 'The appointment has been declined.'
+        });
+        // Refresh appointments
+        const refreshResponse = await bookingService.getUserBookings();
+        if (refreshResponse.status === 'success') {
+          setAppointments(refreshResponse.data.bookings);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to decline appointment',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleStartService = async (appointmentId: string) => {
+    try {
+      const response = await bookingService.completeBooking(appointmentId, 'Service started');
+      if (response.status === 'success') {
+        toast({
+          title: 'Service Started',
+          description: 'The service has been marked as started.'
+        });
+        // Refresh appointments
+        const refreshResponse = await bookingService.getUserBookings();
+        if (refreshResponse.status === 'success') {
+          setAppointments(refreshResponse.data.bookings);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to start service',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleMessageCustomer = (phoneNumber: string) => {
+    if (phoneNumber) {
+      window.open(`sms:${phoneNumber}`, '_blank');
+    } else {
+      toast({
+        title: 'No Phone Number',
+        description: 'Customer phone number is not available.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleViewReceipt = (appointmentId: string) => {
+    toast({
+      title: 'Coming Soon',
+      description: 'Receipt viewing feature will be available soon.'
+    });
+  };
 
   const filteredAppointments = appointments.filter(appointment => {
     if (filter === 'all') return true;
@@ -161,11 +213,17 @@ const BarberAppointments = () => {
       <div className="flex space-x-2">
         {appointment.status === 'pending' && (
           <>
-            <button className="flex-1 bg-green-50 text-green-700 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center">
+            <button 
+              className="flex-1 bg-green-50 text-green-700 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center"
+              onClick={() => handleConfirmAppointment(appointment.id)}
+            >
               <CheckCircle size={16} className="mr-1" />
               Confirm
             </button>
-            <button className="flex-1 bg-red-50 text-red-600 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center">
+            <button 
+              className="flex-1 bg-red-50 text-red-600 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-center"
+              onClick={() => handleDeclineAppointment(appointment.id)}
+            >
               <XCircle size={16} className="mr-1" />
               Decline
             </button>
@@ -174,17 +232,26 @@ const BarberAppointments = () => {
         
         {appointment.status === 'confirmed' && (
           <>
-            <button className="flex-1 bg-blue-50 text-blue-700 py-2 px-4 rounded-lg text-sm font-medium">
+            <button 
+              className="flex-1 bg-blue-50 text-blue-700 py-2 px-4 rounded-lg text-sm font-medium"
+              onClick={() => handleStartService(appointment.id)}
+            >
               Start Service
             </button>
-            <button className="px-4 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
+            <button 
+              className="px-4 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium"
+              onClick={() => handleMessageCustomer(appointment.phone)}
+            >
               <MessageCircle size={16} />
             </button>
           </>
         )}
         
         {appointment.status === 'completed' && (
-          <button className="flex-1 bg-yellow-50 text-yellow-700 py-2 px-4 rounded-lg text-sm font-medium">
+          <button 
+            className="flex-1 bg-yellow-50 text-yellow-700 py-2 px-4 rounded-lg text-sm font-medium"
+            onClick={() => handleViewReceipt(appointment.id)}
+          >
             View Receipt
           </button>
         )}
@@ -194,7 +261,7 @@ const BarberAppointments = () => {
 
   return (
     <Layout userType="barber">
-      <Header title="Appointments" />
+      <Header title="Bookings" />
       
       <div className="pt-24 px-4 py-4">
         {/* Date Selector */}
@@ -272,4 +339,4 @@ const BarberAppointments = () => {
   );
 };
 
-export default BarberAppointments;
+export default BarberBookings;

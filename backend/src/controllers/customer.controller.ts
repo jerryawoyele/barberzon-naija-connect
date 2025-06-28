@@ -62,7 +62,7 @@ export const getProfile = async (req: Request, res: Response) => {
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const customerId = req.user?.id;
-    const { fullName, email, profileImage, locationLat, locationLng } = req.body;
+    const { fullName, email, phone, profileImage, locationLat, locationLng } = req.body;
 
     if (!customerId) {
       return res.status(401).json({
@@ -89,6 +89,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       data: {
         fullName: fullName || undefined,
         email: email || undefined,
+        phoneNumber: phone || undefined,
         profileImage: profileImage || undefined,
         locationLat: locationLat || undefined,
         locationLng: locationLng || undefined

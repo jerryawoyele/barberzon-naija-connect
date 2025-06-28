@@ -10,6 +10,7 @@ export interface RegisterData {
   email: string;
   password: string;
   phoneNumber: string;
+  role?: 'customer' | 'barber';
 }
 
 export interface UserVerificationData {
@@ -58,7 +59,7 @@ export interface GoogleAuthResponse {
  */
 class AuthService {
   /**
-   * Login a user (customer)
+   * Universal login method for all user types
    */
   async login(credentials: LoginCredentials) {
     try {
@@ -68,16 +69,9 @@ class AuthService {
         // Store the token
         apiClient.setToken(response.data.data.token);
         
-        // Make sure the role is set to 'customer' for customer login
-        const userData = {
-          ...response.data.data.user,
-          role: 'customer'
-        };
-        
-        // Store user data
+        // Store user data with role from response
+        const userData = response.data.data.user;
         localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Set token in localStorage for App.tsx to pick up on refresh
         localStorage.setItem('token', response.data.data.token);
         
         console.log('User data stored:', userData);
@@ -91,100 +85,28 @@ class AuthService {
   }
 
   /**
-   * Register a new customer
+   * Universal register method for all user types
+   * User will be directed to onboarding after registration to specify role and details
    */
-  async registerCustomer(data: RegisterData) {
+  async register(data: RegisterData) {
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/register/customer', data);
+      const response = await apiClient.post<AuthResponse>('/auth/register', data);
       
       if (response.data.status === 'success') {
         // Store the token
         apiClient.setToken(response.data.data.token);
         
-        // Make sure the role is set to 'customer' for customer registration
-        const userData = {
-          ...response.data.data.user,
-          role: 'customer'
-        };
-        
-        // Store user data
+        // Store user data (role might be null initially, will be set during onboarding)
+        const userData = response.data.data.user;
         localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Set token in localStorage for App.tsx to pick up on refresh
         localStorage.setItem('token', response.data.data.token);
         
-        console.log('Customer data stored after registration:', userData);
+        console.log('User data stored after registration:', userData);
       }
       
       return response.data;
     } catch (error) {
       console.error('Registration error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Login a barber
-   */
-  async loginBarber(credentials: LoginCredentials) {
-    try {
-      const response = await apiClient.post<AuthResponse>('/auth/barber/login', credentials);
-      
-      if (response.data.status === 'success') {
-        // Store the token
-        apiClient.setToken(response.data.data.token);
-        
-        // Make sure the role is set to 'barber' for barber login
-        const userData = {
-          ...response.data.data.user,
-          role: 'barber'
-        };
-        
-        // Store user data
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Set token in localStorage for App.tsx to pick up on refresh
-        localStorage.setItem('token', response.data.data.token);
-        
-        console.log('Barber data stored:', userData);
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error('Barber login error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Register a new barber
-   */
-  async registerBarber(data: RegisterData & { specialties?: string[]; hourlyRate?: number }) {
-    try {
-      const response = await apiClient.post<AuthResponse>('/auth/register/barber', data);
-      
-      if (response.data.status === 'success') {
-        // Store the token
-        apiClient.setToken(response.data.data.token);
-        
-        // Make sure the role is set to 'barber' for barber registration
-        const userData = {
-          ...response.data.data.user,
-          role: 'barber'
-        };
-        
-        // Store user data
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Set token in localStorage for App.tsx to pick up on refresh
-        localStorage.setItem('token', response.data.data.token);
-        
-        console.log('Barber data stored after registration:', userData);
-      }
-      
-      return response.data;
-    } catch (error) {
-      console.error('Barber registration error:', error);
       throw error;
     }
   }

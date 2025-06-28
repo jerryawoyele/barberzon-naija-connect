@@ -8,10 +8,12 @@ import { Scissors, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { authService } from '@/services';
 import { useToast } from '@/hooks/use-toast';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 
 const Signup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  useAuthRedirect();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,13 +103,33 @@ const Signup = () => {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 py-8 pt-32">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h1>
-            <p className="text-gray-600 text-lg">Join thousands of happy customers</p>
-          </div>
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Account</h1>
+              <p className="text-gray-600 text-lg">Join thousands of happy customers and barbers</p>
+            </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <form onSubmit={handleSubmit} className="space-y-5">
+<GoogleAuthButton 
+                userType="customer" 
+                onSuccess={(user) => {
+                  if (!user.completedOnboarding) {
+                    navigate('/onboarding');
+                  } else {
+                    navigate(user.role === 'barber' ? '/barber/dashboard' : '/home');
+                  }
+                }}
+              />
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                 <Input
@@ -198,19 +220,6 @@ const Signup = () => {
                 {isLoading ? 'Creating Account...' : 'Create Account'}
               </Button>
               
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                </div>
-              </div>
-              
-              <GoogleAuthButton 
-                userType="customer" 
-                onSuccess={() => navigate('/home')}
-              />
             </form>
           </div>
 
@@ -225,14 +234,8 @@ const Signup = () => {
               </button>
             </p>
             
-            <p className="text-sm text-gray-500">
-              Want to join as a barber?{' '}
-              <button
-                onClick={() => navigate('/barber/signup')}
-                className="text-green-600 hover:text-green-700 font-medium transition-colors"
-              >
-                Barber Signup
-              </button>
+            <p className="text-xs text-gray-500">
+              After registration, you'll complete an onboarding process to specify whether you're a customer or barber and set up your profile.
             </p>
           </div>
         </div>

@@ -2,9 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Scissors, MapPin, Star, Users, Clock, Shield, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
+import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 
 const Landing = () => {
   const navigate = useNavigate();
+  useAuthRedirect();
 
   const features = [
     {
@@ -110,10 +112,10 @@ const Landing = () => {
             <Button 
               size="lg"
               variant="outline"
-              onClick={() => navigate('/barber/signup')}
+              onClick={() => navigate('/login')}
               className="border-2 border-green-600 text-green-700 hover:bg-green-50 w-full md:w-auto text-lg px-8 py-4 transition-all duration-300 hover:scale-105"
             >
-              Join as a Barber
+              Sign In
             </Button>
           </div>
         </div>
@@ -196,14 +198,14 @@ const Landing = () => {
               Are You a Barber?
             </h2>
             <p className="text-xl text-green-100 mb-8">
-              Join thousands of barbers earning more with Barberzon
+              Join thousands of barbers and customers earning more with Barberzon
             </p>
             <div className="flex items-center justify-center space-x-4">
               <Button 
-                onClick={() => navigate('/barber/signup')}
+                onClick={() => navigate('/signup')}
                 className="bg-white text-green-700 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg"
               >
-                Join as a Barber
+                Join Barberzon
                 <ChevronRight size={20} className="ml-2" />
               </Button>
             </div>

@@ -1,13 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { Search, Star, MessageCircle, Calendar, TrendingUp, Crown, Filter } from 'lucide-react';
+import { Search, Star, MessageCircle, Calendar, TrendingUp, Crown, Filter, Loader2 } from 'lucide-react';
+import { barberService } from '@/services/barber.service';
 
 const BarberCustomers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const customers = [
+  // Fetch customers from API
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setLoading(true);
+        const response = await barberService.getCustomers(searchQuery, filter);
+        if (response.status === 'success') {
+          setCustomers(response.data);
+        }
+      } catch (err) {
+        console.error('Error fetching customers:', err);
+        setError('Failed to load customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomers();
+  }, [searchQuery, filter]);
+
+  const mockCustomers = [
     {
       id: '1',
       name: 'John Adebayo',
@@ -85,14 +109,8 @@ const BarberCustomers = () => {
     }
   ];
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         customer.phone.includes(searchQuery) ||
-                         customer.email.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (filter === 'all') return matchesSearch;
-    return matchesSearch && customer.status === filter;
-  });
+  // Use real customers or fallback to mock data during loading/error
+  const displayCustomers = loading || error ? mockCustomers : customers;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -237,19 +255,19 @@ const BarberCustomers = () => {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <div className="text-2xl font-bold text-yellow-600">
-              {customers.filter(c => c.status === 'vip').length}
+              {loading ? '...' : displayCustomers.filter(c => c.status === 'vip').length}
             </div>
             <div className="text-xs text-gray-500">VIP Customers</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <div className="text-2xl font-bold text-blue-600">
-              {customers.reduce((sum, c) => sum + c.totalVisits, 0)}
+              {loading ? '...' : displayCustomers.reduce((sum, c) => sum + c.totalVisits, 0)}
             </div>
             <div className="text-xs text-gray-500">Total Visits</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <div className="text-2xl font-bold text-green-600">
-              ₦{customers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()}
+              {loading ? '...' : `₦${displayCustomers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()}`}
             </div>
             <div className="text-xs text-gray-500">Total Revenue</div>
           </div>
@@ -257,15 +275,32 @@ const BarberCustomers = () => {
 
         {/* Customers List */}
         <div>
-          {filteredCustomers.length > 0 ? (
-            filteredCustomers.map((customer) => (
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="animate-spin text-green-600 mr-2" size={24} />
+              <span className="text-gray-600">Loading customers...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-red-500 mb-4">⚠️</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load customers</h3>
+              <p className="text-gray-600">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg"
+              >
+                Retry
+              </button>
+            </div>
+          ) : displayCustomers.length > 0 ? (
+            displayCustomers.map((customer) => (
               <CustomerCard key={customer.id} customer={customer} />
             ))
           ) : (
             <div className="text-center py-12">
               <Search className="mx-auto text-gray-400 mb-4" size={48} />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No customers found</h3>
-              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+              <p className="text-gray-600">You haven't served any customers yet</p>
             </div>
           )}
         </div>

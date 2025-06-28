@@ -1,5 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Unified User System Schema
+// This replaces the current separate Customer/Barber models with a unified approach
 
 generator client {
   provider = "prisma-client-js"
@@ -10,83 +10,131 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User Management
-model Customer {
-  id                 String     @id @default(uuid())
-  phoneNumber        String     @unique
-  email              String?    @unique
-  password           String
-  fullName           String
-  profileImage       String?
-  locationLat        Float?
-  locationLng        Float?
-  favoriteShops      Shop[]     @relation("CustomerFavorites")
-  bookingPreferences Json?
-  loyaltyPoints      Int        @default(0)
+// ===== UNIFIED USER MANAGEMENT =====
+
+// Main users table - stores base information for all users
+model User {
+  id                  String    @id @default(uuid())
+  email               String?   @unique
+  phoneNumber         String    @unique
+  password            String
+  fullName            String
+  profileImage        String?
+  role                String?   // "customer", "barber", or null (not yet onboarded)
+  completedOnboarding Boolean   @default(false)
+  isVerified          Boolean   @default(false)
+  emailVerified       Boolean   @default(false)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
+
+  // One-to-one relationships with role-specific profiles
+  customerProfile    CustomerProfile?
+  barberProfile      BarberProfile?
+
+  // Common relationships that apply to all users
+  notifications      Notification[]
+  pushTokens         PushToken[]
+  transactions       Transaction[]
+}
+
+// Customer-specific profile information
+model CustomerProfile {
+  id                 String     @id @default(uuid())
+  userId             String     @unique
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Customer-specific fields
+  locationLat        Float?
+  locationLng        Float?
+  bookingPreferences Json?
+  loyaltyPoints      Int        @default(0)
+  
+  // Customer relationships
+  favoriteShops      Shop[]     @relation("CustomerFavorites")
   bookings           Booking[]
   reviews            Review[]
   wallet             Wallet?
-  transactions       Transaction[]
   paymentMethods     PaymentMethod[]
-  notifications      Notification[]
-  pushTokens         PushToken[]
+  
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 }
 
-model Barber {
+// Barber-specific profile information
+model BarberProfile {
   id            String     @id @default(uuid())
-  shopId        String
-  shop          Shop       @relation(fields: [shopId], references: [id])
-  fullName      String
-  phoneNumber   String     @unique
-  email         String?    @unique
-  password      String
-  profileImage  String?
+  userId        String     @unique
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Shop association
+  shopId        String?
+  shop          Shop?      @relation(fields: [shopId], references: [id])
+  
+  // Barber-specific fields
   specialties   String[]
-  hourlyRate    Float
+  hourlyRate    Float      @default(0)
   rating        Float      @default(0)
   totalReviews  Int        @default(0)
   isAvailable   Boolean    @default(true)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  isSolo        Boolean    @default(false) // true if solo barber, false if shop barber
+  seatNumber    Int?       // seat assignment in shop (null for solo barbers)
+  status        String     @default("available") // available, busy, break, offline
+  bio           String?
+  experience    String?
+  
+  // Barber relationships
   bookings      Booking[]
   reviews       Review[]
-  transactions  Transaction[]
-  notifications Notification[]
-  pushTokens    PushToken[]
+  ownedShops    Shop[]     @relation("ShopOwner")
+  joinRequests  BarberJoinRequest[]
+  assignedSeats ShopSeat[]
+  payoutAccount PayoutAccount?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
+
+// ===== SHOP MANAGEMENT =====
 
 model Shop {
   id           String     @id @default(uuid())
   ownerId      String
+  owner        BarberProfile @relation("ShopOwner", fields: [ownerId], references: [id])
   name         String
+  description  String?
   address      String
   phoneNumber  String
   email        String?
   locationLat  Float
   locationLng  Float
   openingHours Json
+  totalSeats   Int        @default(4)
   services     Service[]
   rating       Float      @default(0)
   totalReviews Int        @default(0)
   images       String[]
+  isVerified   Boolean    @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  barbers      Barber[]
+  
+  // Relationships
+  barbers      BarberProfile[]
   bookings     Booking[]
-  favoredBy    Customer[] @relation("CustomerFavorites")
+  favoredBy    CustomerProfile[] @relation("CustomerFavorites")
+  joinRequests BarberJoinRequest[]
+  seats        ShopSeat[]
 }
 
-// Booking System
+// ===== BOOKING SYSTEM =====
+
 model Booking {
   id            String     @id @default(uuid())
   customerId    String
-  customer      Customer   @relation(fields: [customerId], references: [id])
+  customer      CustomerProfile @relation(fields: [customerId], references: [id])
   shopId        String
   shop          Shop       @relation(fields: [shopId], references: [id])
   barberId      String
-  barber        Barber     @relation(fields: [barberId], references: [id])
+  barber        BarberProfile @relation(fields: [barberId], references: [id])
   bookingDate   DateTime
   startTime     DateTime
   endTime       DateTime
@@ -118,20 +166,21 @@ model Review {
   bookingId  String   @unique
   booking    Booking  @relation(fields: [bookingId], references: [id])
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
   barberId   String
-  barber     Barber   @relation(fields: [barberId], references: [id])
+  barber     BarberProfile @relation(fields: [barberId], references: [id])
   rating     Float
   comment    String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
 
-// Payment System
+// ===== PAYMENT SYSTEM =====
+
 model Wallet {
   id         String        @id @default(uuid())
   customerId String        @unique
-  customer   Customer      @relation(fields: [customerId], references: [id])
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
   balance    Float         @default(0)
   currency   String        @default("NGN")
   createdAt  DateTime      @default(now())
@@ -141,8 +190,7 @@ model Wallet {
 model Transaction {
   id            String   @id @default(uuid())
   userId        String
-  customer      Customer? @relation(fields: [userId], references: [id], map: "Transaction_customer_fkey")
-  barber        Barber?  @relation(fields: [userId], references: [id], map: "Transaction_barber_fkey")
+  user          User     @relation(fields: [userId], references: [id])
   type          String   // deposit, withdrawal, payment, refund
   amount        Float
   reference     String   @unique
@@ -156,7 +204,7 @@ model Transaction {
 model PaymentMethod {
   id            String   @id @default(uuid())
   customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id])
+  customer      CustomerProfile @relation(fields: [customerId], references: [id])
   type          String   // card, bank, ussd
   cardLastFour  String?
   bankName      String?
@@ -165,12 +213,25 @@ model PaymentMethod {
   updatedAt     DateTime @updatedAt
 }
 
-// Notification System
+model PayoutAccount {
+  id            String   @id @default(uuid())
+  barberId      String   @unique
+  barber        BarberProfile @relation(fields: [barberId], references: [id])
+  bankName      String
+  accountNumber String
+  accountName   String
+  bankCode      String?
+  isVerified    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ===== NOTIFICATION SYSTEM =====
+
 model Notification {
   id          String   @id @default(uuid())
   userId      String
-  customer    Customer? @relation(fields: [userId], references: [id], map: "Notification_customer_fkey")
-  barber      Barber?  @relation(fields: [userId], references: [id], map: "Notification_barber_fkey")
+  user        User     @relation(fields: [userId], references: [id])
   type        String
   title       String
   message     String
@@ -183,11 +244,41 @@ model Notification {
 model PushToken {
   id          String   @id @default(uuid())
   userId      String
-  customer    Customer? @relation(fields: [userId], references: [id], map: "PushToken_customer_fkey")
-  barber      Barber?  @relation(fields: [userId], references: [id], map: "PushToken_barber_fkey")
+  user        User     @relation(fields: [userId], references: [id])
   deviceToken String   @unique
   platform    String   // ios, android, web
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ===== BARBER SHOP MANAGEMENT =====
+
+model BarberJoinRequest {
+  id         String   @id @default(uuid())
+  barberId   String
+  barber     BarberProfile @relation(fields: [barberId], references: [id])
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id])
+  status     String   @default("pending") // pending, approved, rejected
+  message    String?  // optional message from barber
+  seatNumber Int?     // requested seat number (if any)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([barberId, shopId]) // prevent duplicate requests
+}
+
+model ShopSeat {
+  id         String   @id @default(uuid())
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id])
+  seatNumber Int
+  barberId   String?
+  barber     BarberProfile? @relation(fields: [barberId], references: [id])
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([shopId, seatNumber]) // unique seat numbers per shop
 }

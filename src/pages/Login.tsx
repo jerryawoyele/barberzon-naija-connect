@@ -8,10 +8,12 @@ import { Scissors, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { authService } from '@/services';
 import { useToast } from '@/hooks/use-toast';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { useAuthRedirect } from '@/hooks/useAuthRedirect';
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  useAuthRedirect();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -33,12 +35,19 @@ const Login = () => {
           variant: 'default'
         });
         
-        // Redirect based on user role
-        if (authService.isCustomer()) {
-          navigate('/home');
+        // Check if user has completed onboarding
+        const user = authService.getCurrentUser();
+        if (!user.completedOnboarding) {
+          navigate('/onboarding');
         } else {
-          // Shouldn't happen, but just in case
-          navigate('/');
+          // Redirect based on user role
+          if (user.role === 'customer') {
+            navigate('/home');
+          } else if (user.role === 'barber') {
+            navigate('/barber/dashboard');
+          } else {
+            navigate('/');
+          }
         }
       } else {
         toast({
@@ -93,7 +102,27 @@ const Login = () => {
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-            <form onSubmit={handleSubmit} className="space-y-6">
+<GoogleAuthButton 
+                userType="customer" 
+                onSuccess={(user) => {
+                  if (!user.completedOnboarding) {
+                    navigate('/onboarding');
+                  } else {
+                    navigate(user.role === 'barber' ? '/barber/dashboard' : '/home');
+                  }
+                }}
+              />
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber" className="text-gray-700 font-medium">Phone Number or Email</Label>
                 <Input
@@ -150,19 +179,6 @@ const Login = () => {
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
               
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                </div>
-              </div>
-              
-              <GoogleAuthButton 
-                userType="customer" 
-                onSuccess={() => navigate('/home')}
-              />
             </form>
           </div>
 
@@ -177,15 +193,6 @@ const Login = () => {
               </button>
             </p>
             
-            <p className="text-sm text-gray-500">
-              Are you a barber?{' '}
-              <button
-                onClick={() => navigate('/barber/login')}
-                className="text-green-600 hover:text-green-700 font-medium transition-colors"
-              >
-                Barber Login
-              </button>
-            </p>
           </div>
         </div>
       </div>

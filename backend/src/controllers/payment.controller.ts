@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../app';
 import { sendPaymentNotification } from '../utils/notification.utils';
 import { paystackService } from '../utils/payment.utils';
+import { randomUUID } from 'crypto';
 
 /**
  * Get wallet balance
@@ -112,18 +113,26 @@ export const fundWallet = async (req: Request, res: Response) => {
     // Generate a unique reference
     const reference = `FUND-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
 
-    // Create transaction record
-    const transaction = await prisma.transaction.create({
-      data: {
-        userId: customerId,
-        type: 'deposit',
-        amount: parsedAmount,
-        reference,
-        status: 'pending',
-        paymentMethod: paymentMethod || 'card',
-        description: 'Wallet funding'
-      }
+    // Create transaction record using raw SQL to avoid foreign key constraint issues
+    const transactionId = randomUUID();
+    const now = new Date();
+    
+    await prisma.$executeRaw`
+      INSERT INTO "Transaction" (id, "userId", "customerId", type, amount, reference, status, "paymentMethod", description, "createdAt", "updatedAt")
+      VALUES (${transactionId}, ${customerId}, ${customerId}, 'deposit', ${parsedAmount}, ${reference}, 'pending', ${paymentMethod || 'card'}, 'Wallet funding', ${now}::timestamp, ${now}::timestamp)
+    `;
+    
+    // Fetch the created transaction
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId }
     });
+
+    if (!transaction) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to create transaction'
+      });
+    }
 
     // Get customer details for payment
     const customer = await prisma.customer.findUnique({
@@ -247,18 +256,26 @@ export const payForBooking = async (req: Request, res: Response) => {
     // Generate a unique reference
     const reference = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
 
-    // Create transaction record
-    const transaction = await prisma.transaction.create({
-      data: {
-        userId: customerId,
-        type: 'payment',
-        amount: booking.totalAmount,
-        reference,
-        status: 'pending',
-        paymentMethod: paymentMethod || 'wallet',
-        description: `Payment for booking #${bookingId}`
-      }
+    // Create transaction record using raw SQL to avoid foreign key constraint issues
+    const transactionId = randomUUID();
+    const now = new Date();
+    
+    await prisma.$executeRaw`
+      INSERT INTO "Transaction" (id, "userId", "customerId", type, amount, reference, status, "paymentMethod", description, "createdAt", "updatedAt")
+      VALUES (${transactionId}, ${customerId}, ${customerId}, 'payment', ${booking.totalAmount}, ${reference}, 'pending', ${paymentMethod || 'wallet'}, ${`Payment for booking #${bookingId}`}, ${now}::timestamp, ${now}::timestamp)
+    `;
+    
+    // Fetch the created transaction
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId }
     });
+
+    if (!transaction) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to create transaction'
+      });
+    }
 
     // Update wallet balance
     const updatedWallet = await prisma.wallet.update({
@@ -320,18 +337,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // Verify payment with Paystack
-    const verificationResponse = await paystackService.verifyTransaction(reference);
-
-    if (verificationResponse.status !== 'success' || verificationResponse.data.status !== 'success') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Payment verification failed',
-        data: verificationResponse
-      });
-    }
-
-    // Find the transaction
+    // Find the transaction first
     const transaction = await prisma.transaction.findFirst({
       where: { reference }
     });
@@ -349,6 +355,43 @@ export const verifyPayment = async (req: Request, res: Response) => {
         status: 'success',
         message: 'Payment already verified',
         data: { transaction }
+      });
+    }
+
+    // In development mode, simulate successful payment verification
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    let verificationResponse;
+
+    if (isDevelopment) {
+      // Mock successful verification for development
+      verificationResponse = {
+        status: 'success',
+        data: {
+          status: 'success',
+          reference: reference,
+          amount: transaction.amount * 100, // in kobo
+          gateway_response: 'Successful (Development Mode)'
+        }
+      };
+    } else {
+      // Verify payment with Paystack in production
+      try {
+        verificationResponse = await paystackService.verifyTransaction(reference);
+      } catch (error) {
+        console.error('Paystack verification error:', error);
+        return res.status(400).json({
+          status: 'error',
+          message: 'Payment verification failed with Paystack',
+          error: error
+        });
+      }
+    }
+
+    if (verificationResponse.status !== 'success' || verificationResponse.data.status !== 'success') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Payment verification failed',
+        data: verificationResponse
       });
     }
 

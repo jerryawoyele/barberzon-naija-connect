@@ -453,3 +453,355 @@ export const rateBooking = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * Get user's bookings (for both customers and barbers)
+ */
+export const getUserBookings = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { status, page = 1, limit = 10 } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Authentication required'
+      });
+    }
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build where condition based on user role
+    let whereCondition: any = {};
+    
+    if (userRole === 'customer') {
+      // For customers, find their CustomerProfile first
+      const customerProfile = await prisma.customerProfile.findUnique({
+        where: { userId }
+      });
+      
+      if (!customerProfile) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Customer profile not found'
+        });
+      }
+      
+      whereCondition.customerId = customerProfile.id;
+    } else if (userRole === 'barber') {
+      // For barbers, find their BarberProfile first
+      const barberProfile = await prisma.barberProfile.findUnique({
+        where: { userId }
+      });
+      
+      if (!barberProfile) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Barber profile not found'
+        });
+      }
+      
+      whereCondition.barberId = barberProfile.id;
+    } else {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Invalid user role'
+      });
+    }
+
+    // Add status filter if provided
+    if (status && typeof status === 'string') {
+      whereCondition.status = status;
+    }
+
+    // Get bookings with pagination
+    const [bookings, totalCount] = await Promise.all([
+      prisma.booking.findMany({
+        where: whereCondition,
+        include: {
+          customer: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phoneNumber: true,
+                  profileImage: true
+                }
+              }
+            }
+          },
+          barber: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phoneNumber: true,
+                  profileImage: true
+                }
+              }
+            }
+          },
+          shop: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              phoneNumber: true
+            }
+          }
+        },
+        orderBy: {
+          bookingDate: 'desc'
+        },
+        skip,
+        take: limitNum
+      }),
+      prisma.booking.count({ where: whereCondition })
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    // Map bookings to flatten user data
+    const mappedBookings = bookings.map(booking => ({
+      ...booking,
+      customer: {
+        ...booking.customer,
+        ...booking.customer.user
+      },
+      barber: {
+        ...booking.barber,
+        ...booking.barber.user,
+        specialties: booking.barber.specialties
+      }
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        bookings: mappedBookings,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalCount,
+          limit: limitNum
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user bookings:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch bookings'
+    });
+  }
+};
+
+/**
+ * Confirm booking (barber only)
+ */
+export const confirmBooking = async (req: Request, res: Response) => {
+  try {
+    const barberId = req.user?.id;
+    const userRole = req.user?.role;
+    const { bookingId } = req.params;
+
+    if (!barberId || userRole !== 'barber') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Only barbers can confirm bookings'
+      });
+    }
+
+    // Find the booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        barber: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if the barber is authorized to confirm this booking
+    if (booking.barberId !== barberId) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You are not authorized to confirm this booking'
+      });
+    }
+
+    // Check if booking can be confirmed
+    if (booking.status !== 'pending') {
+      return res.status(400).json({
+        status: 'error',
+        message: `Booking is already ${booking.status}`
+      });
+    }
+
+    // Update booking status to confirmed
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'confirmed'
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        barber: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        shop: true
+      }
+    });
+
+    // Send notification to customer about confirmation
+    await sendBookingNotification(bookingId, booking.customerId, 'confirmed');
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Booking confirmed successfully',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error confirming booking:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to confirm booking'
+    });
+  }
+};
+
+/**
+ * Complete booking (barber only)
+ */
+export const completeBooking = async (req: Request, res: Response) => {
+  try {
+    const barberId = req.user?.id;
+    const userRole = req.user?.role;
+    const { bookingId } = req.params;
+    const { notes } = req.body;
+
+    if (!barberId || userRole !== 'barber') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Only barbers can complete bookings'
+      });
+    }
+
+    // Find the booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        barber: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if the barber is authorized to complete this booking
+    if (booking.barberId !== barberId) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You are not authorized to complete this booking'
+      });
+    }
+
+    // Check if booking can be completed
+    if (booking.status !== 'confirmed') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Only confirmed bookings can be completed'
+      });
+    }
+
+    // Update booking status to completed
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'completed',
+        paymentStatus: 'completed', // Assuming payment is completed when service is done
+        notes: notes ? `${booking.notes}\nCompleted: ${notes}` : booking.notes
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        barber: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true
+          }
+        },
+        shop: true
+      }
+    });
+
+    // Send notification to customer about completion
+    await sendBookingNotification(bookingId, booking.customerId, 'completed');
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Booking completed successfully',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error completing booking:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to complete booking'
+    });
+  }
+};

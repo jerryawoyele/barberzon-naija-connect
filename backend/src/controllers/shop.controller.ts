@@ -29,14 +29,14 @@ export const getAllShops = async (req: Request, res: Response) => {
       where: filter,
       include: {
         barbers: {
-          select: {
-            id: true,
-            fullName: true,
-            profileImage: true,
-            specialties: true,
-            rating: true,
-            totalReviews: true,
-            isAvailable: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                profileImage: true
+              }
+            }
           }
         },
         services: true
@@ -49,7 +49,7 @@ export const getAllShops = async (req: Request, res: Response) => {
       const userLng = parseFloat(lng as string);
       const maxRadius = radius ? parseFloat(radius as string) : 10; // Default 10km radius
       
-      // Calculate distance for each shop
+      // Calculate distance for each shop and transform barber data
       const shopsWithDistance = shops.map(shop => {
         const distance = calculateDistance(
           userLat, 
@@ -60,7 +60,16 @@ export const getAllShops = async (req: Request, res: Response) => {
         
         return {
           ...shop,
-          distance
+          distance,
+          barbers: shop.barbers.map(barber => ({
+            id: barber.user.id,
+            fullName: barber.user.fullName,
+            profileImage: barber.user.profileImage,
+            specialties: barber.specialties,
+            rating: barber.rating,
+            totalReviews: barber.totalReviews,
+            isAvailable: barber.isAvailable
+          }))
         };
       });
       
@@ -75,9 +84,23 @@ export const getAllShops = async (req: Request, res: Response) => {
       });
     }
     
+    // Transform barber data for shops without distance calculation
+    const transformedShops = shops.map(shop => ({
+      ...shop,
+      barbers: shop.barbers.map(barber => ({
+        id: barber.user.id,
+        fullName: barber.user.fullName,
+        profileImage: barber.user.profileImage,
+        specialties: barber.specialties,
+        rating: barber.rating,
+        totalReviews: barber.totalReviews,
+        isAvailable: barber.isAvailable
+      }))
+    }));
+    
     return res.status(200).json({
       status: 'success',
-      data: shops
+      data: transformedShops
     });
   } catch (error) {
     console.error('Error fetching shops:', error);
@@ -99,18 +122,21 @@ export const getShopDetails = async (req: Request, res: Response) => {
       where: { id: shopId },
       include: {
         barbers: {
-          select: {
-            id: true,
-            fullName: true,
-            profileImage: true,
-            specialties: true,
-            hourlyRate: true,
-            rating: true,
-            totalReviews: true,
-            isAvailable: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                profileImage: true
+              }
+            }
           }
         },
-        services: true
+        services: {
+          where: {
+            isActive: true
+          }
+        }
       }
     });
     
@@ -121,9 +147,46 @@ export const getShopDetails = async (req: Request, res: Response) => {
       });
     }
     
+    // Parse opening hours from JSON or provide defaults
+    let openingHours = '09:00';
+    let closingHours = '18:00';
+    
+    if (shop.openingHours && typeof shop.openingHours === 'object') {
+      // If openingHours is stored as JSON with day-specific hours
+      const hours = shop.openingHours as any;
+      if (hours.monday && !hours.monday.closed) {
+        openingHours = hours.monday.open || '09:00';
+        closingHours = hours.monday.close || '18:00';
+      }
+    }
+    
+    // Transform the data to match frontend expectations
+    const transformedShop = {
+      ...shop,
+      openingHours,
+      closingHours,
+      barbers: shop.barbers.map(barber => ({
+        id: barber.user.id,
+        fullName: barber.user.fullName,
+        profileImage: barber.user.profileImage,
+        specialties: barber.specialties,
+        hourlyRate: barber.hourlyRate,
+        rating: barber.rating,
+        totalReviews: barber.totalReviews,
+        isAvailable: barber.isAvailable
+      })),
+      services: shop.services.map(service => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        duration: service.durationMinutes
+      }))
+    };
+    
     return res.status(200).json({
       status: 'success',
-      data: shop
+      data: transformedShop
     });
   } catch (error) {
     console.error('Error fetching shop details:', error);
@@ -187,15 +250,14 @@ export const getShopBarbers = async (req: Request, res: Response) => {
         id: true,
         name: true,
         barbers: {
-          select: {
-            id: true,
-            fullName: true,
-            profileImage: true,
-            specialties: true,
-            hourlyRate: true,
-            rating: true,
-            totalReviews: true,
-            isAvailable: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                profileImage: true
+              }
+            }
           }
         }
       }
@@ -208,9 +270,21 @@ export const getShopBarbers = async (req: Request, res: Response) => {
       });
     }
     
+    // Transform barber data to match frontend expectations
+    const transformedBarbers = shop.barbers.map(barber => ({
+      id: barber.user.id,
+      fullName: barber.user.fullName,
+      profileImage: barber.user.profileImage,
+      specialties: barber.specialties,
+      hourlyRate: barber.hourlyRate,
+      rating: barber.rating,
+      totalReviews: barber.totalReviews,
+      isAvailable: barber.isAvailable
+    }));
+    
     return res.status(200).json({
       status: 'success',
-      data: shop.barbers
+      data: transformedBarbers
     });
   } catch (error) {
     console.error('Error fetching shop barbers:', error);

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Onboarding Completion</title>
+</head>
+<body>
+    <h1>Onboarding Test</h1>
+    <p>Open browser console (F12) and run the commands below to simulate onboarding completion:</p>
+    
+    <h2>Test Commands:</h2>
+    
+    <h3>1. Check current user:</h3>
+    <code>
+        console.log('Current user:', JSON.parse(localStorage.getItem('user') || '{}'));
+    </code>
+    
+    <h3>2. Complete onboarding as Customer:</h3>
+    <code>
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = {
+            ...currentUser,
+            role: 'CUSTOMER',
+            completedOnboarding: true,
+            onboardingData: { userType: 'customer', locationLat: 6.5244, locationLng: 3.3792 }
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        console.log('Updated user:', updatedUser);
+        window.location.reload();
+    </code>
+    
+    <h3>3. Complete onboarding as Barber:</h3>
+    <code>
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = {
+            ...currentUser,
+            role: 'BARBER',
+            completedOnboarding: true,
+            onboardingData: { userType: 'barber', specialties: ['Fade', 'Beard Trim'], hourlyRate: '5000' }
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        console.log('Updated user:', updatedUser);
+        window.location.reload();
+    </code>
+    
+    <h3>4. Reset onboarding (to test again):</h3>
+    <code>
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const resetUser = {
+            ...currentUser,
+            completedOnboarding: false
+        };
+        localStorage.setItem('user', JSON.stringify(resetUser));
+        console.log('Reset user:', resetUser);
+        window.location.reload();
+    </code>
+    
+    <script>
+        console.log('📋 Onboarding test page loaded');
+        console.log('Current localStorage user:', JSON.parse(localStorage.getItem('user') || '{}'));
+        console.log('Current localStorage token:', localStorage.getItem('token'));
+    </script>
+</body>
+</html>

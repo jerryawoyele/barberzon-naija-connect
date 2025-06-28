@@ -47,7 +47,7 @@ export class ApiClient {
     );
 
     // Initialize token from localStorage
-    this.token = localStorage.getItem('auth_token');
+    this.token = localStorage.getItem('token');
   }
 
   /**
@@ -55,7 +55,7 @@ export class ApiClient {
    */
   setToken(token: string): void {
     this.token = token;
-    localStorage.setItem('auth_token', token);
+    localStorage.setItem('token', token);
   }
 
   /**
@@ -63,7 +63,7 @@ export class ApiClient {
    */
   clearToken(): void {
     this.token = null;
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
   }
 
   /**

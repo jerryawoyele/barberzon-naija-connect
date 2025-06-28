@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Star, MapPin, Clock } from 'lucide-react';
 
 interface BarberCardProps {
@@ -27,6 +28,7 @@ const BarberCard = ({
   price,
   onBook
 }: BarberCardProps) => {
+  const navigate = useNavigate();
   const platformFee = Math.round(price * 0.08);
   const totalPrice = price + platformFee;
 
@@ -80,17 +82,25 @@ const BarberCard = ({
             ))}
           </div>
           
-          <button
-            onClick={() => onBook(id)}
-            disabled={!isAvailable}
-            className={`w-full mt-3 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-              isAvailable
-                ? 'bg-green-700 text-white hover:bg-green-800'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {isAvailable ? 'Book Now' : 'Unavailable'}
-          </button>
+          <div className="flex space-x-2 mt-3">
+            <button
+              onClick={() => navigate(`/barber/profile/${id}`)}
+              className="flex-1 py-2 px-4 rounded-lg font-medium text-sm border border-green-600 text-green-600 hover:bg-green-50 transition-colors"
+            >
+              View Profile
+            </button>
+            <button
+              onClick={() => onBook(id)}
+              disabled={!isAvailable}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                isAvailable
+                  ? 'bg-green-700 text-white hover:bg-green-800'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {isAvailable ? 'Book Now' : 'Unavailable'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

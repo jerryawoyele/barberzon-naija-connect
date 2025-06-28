@@ -13,6 +13,9 @@ import shopRoutes from './routes/shop.routes';
 import bookingRoutes from './routes/booking.routes';
 import paymentRoutes, { webhookRouter } from './routes/payment.routes';
 import notificationRoutes from './routes/notification.routes';
+import barberJoinRequestRoutes from './routes/barberJoinRequest.routes';
+import uploadRoutes from './routes/upload.routes';
+import publicRoutes from './routes/public.routes';
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +47,9 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/webhook/paystack', webhookRouter);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/barber-requests', barberJoinRequestRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/public', publicRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

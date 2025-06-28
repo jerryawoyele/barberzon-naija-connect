@@ -4,16 +4,22 @@ import { ArrowLeft } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
-  showBack?: boolean;
+  showBack?: React.ReactNode;
+  leftAction?: React.ReactNode;
   onBack?: () => void;
   rightAction?: React.ReactNode;
   className?: string;
 }
 
-const Header = ({ title, showBack, onBack, rightAction, className = '' }: HeaderProps) => {
+const Header = ({ title, showBack, onBack, leftAction, rightAction, className = '' }: HeaderProps) => {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm ${className}`}>
       <div className="flex items-center">
+        {leftAction && (
+          <div className="mr-3 animate-fade-in">
+            {leftAction}
+          </div>
+        )}
         {showBack && (
           <button
             onClick={onBack}

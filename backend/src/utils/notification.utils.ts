@@ -17,10 +17,20 @@ export const sendNotification = async (
   dataPayload?: Record<string, unknown>
 ) => {
   try {
+    // Determine if user is customer or barber
+    const customer = await prisma.customer.findUnique({ where: { id: userId } });
+    const barber = await prisma.barber.findUnique({ where: { id: userId } });
+
+    if (!customer && !barber) {
+      throw new Error(`User not found: ${userId}`);
+    }
+
     // Create notification in database
     const notification = await prisma.notification.create({
       data: {
         userId,
+        customerId: customer ? userId : null,
+        barberId: barber ? userId : null,
         type,
         title,
         message,

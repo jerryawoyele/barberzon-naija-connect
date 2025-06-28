@@ -99,12 +99,23 @@ class BookingService {
   /**
    * Get user bookings (for customer or barber)
    */
-  async getUserBookings(status?: string) {
+  async getUserBookings(status?: string, page: number = 1, limit: number = 10) {
     try {
-      const response = await apiClient.get<{ status: string; data: BookingWithDetails[] }>(
-        '/bookings',
+      const response = await apiClient.get<{ 
+        status: string; 
+        data: {
+          bookings: BookingWithDetails[];
+          pagination: {
+            currentPage: number;
+            totalPages: number;
+            totalCount: number;
+            limit: number;
+          }
+        }
+      }>(
+        '/bookings/user',
         {
-          params: { status }
+          params: { status, page, limit }
         }
       );
       return response.data;
@@ -131,17 +142,32 @@ class BookingService {
   }
 
   /**
-   * Update booking status (for barbers)
+   * Confirm booking (for barbers)
    */
-  async updateBookingStatus(bookingId: string, status: 'confirmed' | 'completed' | 'cancelled') {
+  async confirmBooking(bookingId: string) {
     try {
       const response = await apiClient.patch<{ status: string; message: string; data: BookingWithDetails }>(
-        `/barbers/bookings/${bookingId}/status`,
-        { status }
+        `/bookings/${bookingId}/confirm`
       );
       return response.data;
     } catch (error) {
-      console.error(`Error updating booking status for ${bookingId}:`, error);
+      console.error(`Error confirming booking ${bookingId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete booking (for barbers)
+   */
+  async completeBooking(bookingId: string, notes?: string) {
+    try {
+      const response = await apiClient.patch<{ status: string; message: string; data: BookingWithDetails }>(
+        `/bookings/${bookingId}/complete`,
+        { notes }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error completing booking ${bookingId}:`, error);
       throw error;
     }
   }

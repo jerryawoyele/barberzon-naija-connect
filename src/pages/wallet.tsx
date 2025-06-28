@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { paymentService } from '@/services/payment.service';
+import paymentService from '@/services/payment.service';
 import Layout from '@/components/Layout';
 
 /**
@@ -257,13 +257,15 @@ const WalletPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="all" onValueChange={setActiveTab}>
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="deposit">Deposits</TabsTrigger>
-                    <TabsTrigger value="payment">Payments</TabsTrigger>
-                    <TabsTrigger value="withdrawal">Withdrawals</TabsTrigger>
-                    <TabsTrigger value="refund">Refunds</TabsTrigger>
-                  </TabsList>
+                  <div className="mb-4 overflow-x-auto">
+                    <TabsList className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground w-max min-w-full sm:w-auto">
+                      <TabsTrigger value="all" className="whitespace-nowrap">All</TabsTrigger>
+                      <TabsTrigger value="deposit" className="whitespace-nowrap">Deposits</TabsTrigger>
+                      <TabsTrigger value="payment" className="whitespace-nowrap">Payments</TabsTrigger>
+                      <TabsTrigger value="withdrawal" className="whitespace-nowrap">Withdrawals</TabsTrigger>
+                      <TabsTrigger value="refund" className="whitespace-nowrap">Refunds</TabsTrigger>
+                    </TabsList>
+                  </div>
                   
                   <TabsContent value={activeTab}>
                     {filteredTransactions.length === 0 ? (

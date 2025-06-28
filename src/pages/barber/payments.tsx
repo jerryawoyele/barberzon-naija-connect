@@ -1,13 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { DollarSign, TrendingUp, Calendar, Eye, EyeOff, Download, ArrowUpRight, ArrowDownLeft, Info } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, Eye, EyeOff, Download, ArrowUpRight, ArrowDownLeft, Info, Loader2, Edit, X, Save, CheckCircle } from 'lucide-react';
+import { barberService } from '@/services/barber.service';
 
 const BarberPayments = () => {
   const [showEarnings, setShowEarnings] = useState(true);
   const [timeframe, setTimeframe] = useState('month');
+  const [transactionData, setTransactionData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [payoutAccount, setPayoutAccount] = useState<any>(null);
+  const [upcomingPayouts, setUpcomingPayouts] = useState<any[]>([]);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutFormData, setPayoutFormData] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+    bankCode: ''
+  });
+  const [isSavingPayout, setIsSavingPayout] = useState(false);
 
-  const paymentData = {
+  // Fetch transaction data, payout account and upcoming payouts from API
+  useEffect(() => {
+    const fetchPaymentData = async () => {
+      try {
+        setLoading(true);
+        const [transactionsResponse, payoutAccountResponse, upcomingPayoutsResponse] = await Promise.all([
+          barberService.getTransactions(timeframe),
+          barberService.getPayoutAccount(),
+          barberService.getUpcomingPayouts()
+        ]);
+        
+        if (transactionsResponse.status === 'success') {
+          setTransactionData(transactionsResponse.data);
+        }
+        if (payoutAccountResponse.status === 'success') {
+          setPayoutAccount(payoutAccountResponse.data);
+          if (payoutAccountResponse.data) {
+            setPayoutFormData({
+              bankName: payoutAccountResponse.data.bankName || '',
+              accountNumber: payoutAccountResponse.data.accountNumber || '',
+              accountName: payoutAccountResponse.data.accountName || '',
+              bankCode: payoutAccountResponse.data.bankCode || ''
+            });
+          }
+        }
+        if (upcomingPayoutsResponse.status === 'success') {
+          setUpcomingPayouts(upcomingPayoutsResponse.data);
+        }
+      } catch (err) {
+        console.error('Error fetching payment data:', err);
+        setError('Failed to load payment data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPaymentData();
+  }, [timeframe]);
+
+  const mockPaymentData = {
     month: {
       grossEarnings: 485000,
       platformFees: 38800,
@@ -34,9 +87,18 @@ const BarberPayments = () => {
     }
   };
 
-  const currentData = paymentData[timeframe as keyof typeof paymentData];
+  // Use real data or fallback to mock data
+  const currentData = transactionData ? {
+    grossEarnings: transactionData.summary.grossEarnings,
+    platformFees: transactionData.summary.platformFees,
+    netEarnings: transactionData.summary.netEarnings,
+    payouts: transactionData.summary.netEarnings * 0.8, // Assume 80% already paid out
+    pending: transactionData.summary.netEarnings * 0.2, // Assume 20% pending
+    transactions: transactionData.summary.totalTransactions
+  } : mockPaymentData[timeframe as keyof typeof mockPaymentData];
 
-  const recentTransactions = [
+  // Use real transactions or fallback to mock data
+  const recentTransactions = transactionData?.transactions || [
     {
       id: '1',
       type: 'earning',
@@ -85,15 +147,44 @@ const BarberPayments = () => {
     }
   ];
 
-  const upcomingPayouts = [
-    {
-      id: '1',
-      amount: 32200,
-      date: '2024-06-28',
-      description: 'Weekly Payout',
-      bankAccount: 'GTBank ****4532'
+  // Handle opening payout modal
+  const handleEditPayout = () => {
+    if (payoutAccount) {
+      setPayoutFormData({
+        bankName: payoutAccount.bankName || '',
+        accountNumber: payoutAccount.accountNumber || '',
+        accountName: payoutAccount.accountName || '',
+        bankCode: payoutAccount.bankCode || ''
+      });
     }
-  ];
+    setShowPayoutModal(true);
+  };
+  
+  // Handle saving payout account
+  const handleSavePayout = async () => {
+    try {
+      setIsSavingPayout(true);
+      
+      const response = await barberService.upsertPayoutAccount(payoutFormData);
+      
+      if (response.status === 'success') {
+        setPayoutAccount(response.data);
+        setShowPayoutModal(false);
+        alert('Payout account updated successfully!');
+        
+        // Refresh upcoming payouts
+        const upcomingResponse = await barberService.getUpcomingPayouts();
+        if (upcomingResponse.status === 'success') {
+          setUpcomingPayouts(upcomingResponse.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating payout account:', error);
+      alert('Failed to update payout account. Please try again.');
+    } finally {
+      setIsSavingPayout(false);
+    }
+  };
 
   const TransactionItem = ({ transaction }: { transaction: any }) => (
     <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
@@ -299,14 +390,42 @@ const BarberPayments = () => {
         {/* Bank Account Info */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <h3 className="font-semibold text-gray-900 mb-4">Payout Account</h3>
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <p className="font-medium text-gray-900">GTBank</p>
-              <p className="text-sm text-gray-600">****4532</p>
-              <p className="text-xs text-gray-500">Emeka Okafor</p>
+          {payoutAccount ? (
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">{payoutAccount.bankName}</p>
+                <p className="text-sm text-gray-600">****{payoutAccount.accountNumber.slice(-4)}</p>
+                <p className="text-xs text-gray-500">{payoutAccount.accountName}</p>
+                {payoutAccount.isVerified ? (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 mt-1">
+                    <CheckCircle size={12} className="mr-1" />
+                    Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 mt-1">
+                    Pending Verification
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={handleEditPayout}
+                className="text-green-700 text-sm font-medium flex items-center"
+              >
+                <Edit size={16} className="mr-1" />
+                Change
+              </button>
             </div>
-            <button className="text-green-700 text-sm font-medium">Change</button>
-          </div>
+          ) : (
+            <div className="text-center p-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-600 mb-4">No payout account set up</p>
+              <button 
+                onClick={handleEditPayout}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium"
+              >
+                Add Payout Account
+              </button>
+            </div>
+          )}
           
           <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
             <p className="text-sm text-yellow-800">
@@ -314,6 +433,122 @@ const BarberPayments = () => {
             </p>
           </div>
         </div>
+        
+        {/* Payout Account Modal */}
+        {showPayoutModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">
+                    {payoutAccount ? 'Edit Payout Account' : 'Add Payout Account'}
+                  </h3>
+                  <button
+                    onClick={() => setShowPayoutModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bank Name *
+                  </label>
+                  <select
+                    value={payoutFormData.bankName}
+                    onChange={(e) => setPayoutFormData(prev => ({ ...prev, bankName: e.target.value }))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select Bank</option>
+                    <option value="Access Bank">Access Bank</option>
+                    <option value="GTBank">GTBank</option>
+                    <option value="First Bank">First Bank</option>
+                    <option value="UBA">UBA</option>
+                    <option value="Zenith Bank">Zenith Bank</option>
+                    <option value="Fidelity Bank">Fidelity Bank</option>
+                    <option value="FCMB">FCMB</option>
+                    <option value="Stanbic IBTC">Stanbic IBTC</option>
+                    <option value="Sterling Bank">Sterling Bank</option>
+                    <option value="Unity Bank">Unity Bank</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Account Number *
+                  </label>
+                  <input
+                    type="text"
+                    value={payoutFormData.accountNumber}
+                    onChange={(e) => setPayoutFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0123456789"
+                    maxLength={10}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Account Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={payoutFormData.accountName}
+                    onChange={(e) => setPayoutFormData(prev => ({ ...prev, accountName: e.target.value }))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Full Name as on Bank Account"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bank Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={payoutFormData.bankCode}
+                    onChange={(e) => setPayoutFormData(prev => ({ ...prev, bankCode: e.target.value }))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., 058"
+                  />
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="p-6 bg-gray-50 border-t flex space-x-3">
+                <button
+                  onClick={() => setShowPayoutModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-colors"
+                  disabled={isSavingPayout}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePayout}
+                  disabled={isSavingPayout || !payoutFormData.bankName || !payoutFormData.accountNumber || !payoutFormData.accountName}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-3 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isSavingPayout ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={16} />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2" size={16} />
+                      Save Account
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

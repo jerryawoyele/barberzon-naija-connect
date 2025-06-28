@@ -1,20 +1,29 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../app';
 import { generateToken } from '../utils/jwt.utils';
-import { generateVerificationToken, sendVerificationEmail, verifyEmailToken, sendWelcomeEmail } from '../utils/email.resend.utils';
+import { generateVerificationToken, sendVerificationEmail, verifyEmailToken, sendWelcomeEmail } from '../utils/email.utils';
 import axios from 'axios';
 import { config } from '../config';
 
 /**
- * Register a new customer
+ * Register a new user (customer or barber)
  */
-export const registerCustomer = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response) => {
   try {
-    const { phoneNumber, email, password, fullName } = req.body;
+    const { phoneNumber, email, password, fullName, role = 'customer' } = req.body;
+
+    // Validate role
+    if (!['customer', 'barber'].includes(role)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid role. Must be either customer or barber'
+      });
+    }
 
     // Check if user already exists
-    const existingUser = await prisma.customer.findFirst({
+    const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
           { phoneNumber },
@@ -33,45 +42,472 @@ export const registerCustomer = async (req: Request, res: Response) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new customer
-    const newCustomer = await prisma.customer.create({
+    // Create new user with appropriate profile
+    const userData = {
+      phoneNumber,
+      email,
+      password: hashedPassword,
+      fullName,
+      role,
+      completedOnboarding: true,
+      emailVerified: false,
+    };
+
+    let newUser;
+
+    if (role === 'customer') {
+      newUser = await prisma.user.create({
+        data: {
+          ...userData,
+          customerProfile: {
+            create: {
+              wallet: {
+                create: {
+                  balance: 0,
+                  currency: 'NGN'
+                }
+              }
+            }
+          }
+        },
+        include: {
+          customerProfile: {
+            include: {
+              wallet: true
+            }
+          }
+        }
+      });
+    } else {
+      newUser = await prisma.user.create({
+        data: {
+          ...userData,
+          barberProfile: {
+            create: {
+              specialties: [],
+              hourlyRate: 0,
+              isAvailable: true,
+            }
+          }
+        },
+        include: {
+          barberProfile: true
+        }
+      });
+    }
+
+    // Generate token
+    const token = generateToken({
+      id: newUser.id,
+      role
+    });
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = newUser;
+
+    return res.status(201).json({
+      status: 'success',
+      message: `${role === 'customer' ? 'Customer' : 'Barber'} registered successfully`,
       data: {
-        phoneNumber,
-        email,
-        password: hashedPassword,
-        fullName,
-        // Create a wallet for the customer
-        wallet: {
-          create: {
-            balance: 0,
-            currency: 'NGN'
+        user: userWithoutPassword,
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to register user'
+    });
+  }
+};
+
+// Maintain backward compatibility with existing routes
+export const registerCustomer = register;
+export const registerBarber = register;
+
+/**
+ * Login user (customer or barber)
+ */
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, password } = req.body;
+
+    console.log('Login attempt:', { phoneNumber });
+
+    // Check if the input looks like an email
+    const isEmail = phoneNumber.includes('@');
+    
+    console.log('Is email?', isEmail);
+
+    // Find the user by phoneNumber or email
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber },
+          { email: phoneNumber } // Try to find by email if phoneNumber is actually an email
+        ]
+      },
+      include: {
+        customerProfile: {
+          include: {
+            wallet: true
+          }
+        },
+        barberProfile: {
+          include: {
+            shop: true
           }
         }
       }
     });
 
+    if (!user) {
+      console.log('User not found');
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid credentials'
+      });
+    }
+
+    console.log('User found:', { id: user.id, role: user.role });
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      console.log('Invalid password');
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid credentials'
+      });
+    }
+
+    console.log('Password valid, generating token');
+
     // Generate token
     const token = generateToken({
-      id: newCustomer.id,
-      role: 'customer'
+      id: user.id,
+      role: user.role || 'customer'
     });
 
     // Return user data without password
-    const { password: _, ...customerData } = newCustomer;
+    const { password: _, ...userWithoutPassword } = user;
 
-    return res.status(201).json({
+    return res.status(200).json({
       status: 'success',
-      message: 'Customer registered successfully',
+      message: 'Login successful',
       data: {
-        user: customerData,
+        user: userWithoutPassword,
         token
       }
     });
   } catch (error) {
-    console.error('Error registering customer:', error);
+    console.error('Error logging in user:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Failed to register customer'
+      message: 'Failed to login'
+    });
+  }
+};
+
+// Maintain backward compatibility
+export const loginCustomer = login;
+export const loginBarber = login;
+
+/**
+ * Get user profile with onboarding status
+ */
+export const getUserProfile = async (req: Request, res: Response) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const userId = decoded.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        customerProfile: {
+          include: {
+            wallet: true
+          }
+        },
+        barberProfile: {
+          include: {
+            shop: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Return user profile without password
+    const { password: _, ...userProfile } = user;
+
+    const profileData = {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role?.toLowerCase() || 'customer',
+      phoneNumber: user.phoneNumber,
+      profileImage: user.profileImage,
+      completedOnboarding: user.completedOnboarding,
+      emailVerified: user.emailVerified,
+      ...(user.customerProfile && { customerProfile: user.customerProfile }),
+      ...(user.barberProfile && { barberProfile: user.barberProfile })
+    };
+
+    res.status(200).json({
+      user: profileData
+    });
+
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * Complete user onboarding (transition to barber role if needed)
+ */
+export const completeOnboarding = async (req: Request, res: Response) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const userId = decoded.id;
+
+    const { userType, ...data } = req.body;
+
+    // Find existing user
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        customerProfile: true,
+        barberProfile: true
+      }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+
+    let updatedUser;
+
+    if (userType === 'customer') {
+      // Update user as customer
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: 'customer',
+          completedOnboarding: true,
+          ...(data.fullName && { fullName: data.fullName }),
+          ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+        },
+        include: {
+          customerProfile: {
+            include: {
+              wallet: true
+            }
+          }
+        }
+      });
+
+      // Update customer profile if it exists
+      if (existingUser.customerProfile) {
+        await prisma.customerProfile.update({
+          where: { userId },
+          data: {
+            ...(data.locationLat && data.locationLng && {
+              locationLat: data.locationLat,
+              locationLng: data.locationLng
+            }),
+            ...(data.bookingPreferences && {
+              bookingPreferences: data.bookingPreferences
+            })
+          }
+        });
+      } else {
+        // Create customer profile if it doesn't exist
+        await prisma.customerProfile.create({
+          data: {
+            userId,
+            ...(data.locationLat && data.locationLng && {
+              locationLat: data.locationLat,
+              locationLng: data.locationLng
+            }),
+            ...(data.bookingPreferences && {
+              bookingPreferences: data.bookingPreferences
+            }),
+            wallet: {
+              create: {
+                balance: 0,
+                currency: 'NGN'
+              }
+            }
+          }
+        });
+      }
+
+    } else if (userType === 'barber') {
+      // Update user as barber
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: 'barber',
+          completedOnboarding: true,
+          ...(data.fullName && { fullName: data.fullName }),
+          ...(data.profileImage !== undefined && { profileImage: data.profileImage }),
+        },
+        include: {
+          barberProfile: {
+            include: {
+              shop: true
+            }
+          }
+        }
+      });
+
+      // Update or create barber profile
+      if (existingUser.barberProfile) {
+        await prisma.barberProfile.update({
+          where: { userId },
+          data: {
+            specialties: data.specialties || [],
+            hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : 0,
+            bio: data.bio,
+            experience: data.experience,
+            isAvailable: true,
+          }
+        });
+      } else {
+        await prisma.barberProfile.create({
+          data: {
+            userId,
+            specialties: data.specialties || [],
+            hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : 0,
+            bio: data.bio,
+            experience: data.experience,
+            isAvailable: true,
+          }
+        });
+      }
+
+      // Handle shop creation or joining
+      if (data.isNewShop && data.shopName) {
+        const barberProfile = await prisma.barberProfile.findUnique({ where: { userId } });
+        
+        const shop = await prisma.shop.create({
+          data: {
+            name: data.shopName,
+            address: data.shopAddress || '',
+            phoneNumber: data.shopPhone || '',
+            description: data.shopDescription || '',
+            locationLat: data.locationLat || 0,
+            locationLng: data.locationLng || 0,
+            openingHours: {
+              monday: { open: '09:00', close: '18:00' },
+              tuesday: { open: '09:00', close: '18:00' },
+              wednesday: { open: '09:00', close: '18:00' },
+              thursday: { open: '09:00', close: '18:00' },
+              friday: { open: '09:00', close: '18:00' },
+              saturday: { open: '09:00', close: '18:00' },
+              sunday: { open: '10:00', close: '16:00' }
+            },
+            images: [],
+            ownerId: barberProfile!.id
+          }
+        });
+
+        // Associate barber with the shop
+        await prisma.barberProfile.update({
+          where: { userId },
+          data: { shopId: shop.id }
+        });
+      } else if (data.shopId) {
+        // Join existing shop
+        await prisma.barberProfile.update({
+          where: { userId },
+          data: { shopId: data.shopId }
+        });
+      }
+
+      // Generate new token with barber role
+      const newToken = generateToken({
+        id: userId,
+        role: 'barber'
+      });
+
+      // Get updated user data
+      const finalUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          barberProfile: {
+            include: {
+              shop: true
+            }
+          }
+        }
+      });
+
+      return res.status(200).json({
+        message: 'Onboarding completed successfully',
+        user: finalUser,
+        newToken // Include new token for role change
+      });
+    }
+
+    // Get final updated user data
+    const finalUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        customerProfile: {
+          include: {
+            wallet: true
+          }
+        },
+        barberProfile: {
+          include: {
+            shop: true
+          }
+        }
+      }
+    });
+
+    res.status(200).json({
+      message: 'Onboarding completed successfully',
+      user: finalUser
+    });
+
+  } catch (error) {
+    console.error('Error completing onboarding:', error);
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
     });
   }
 };
@@ -98,14 +534,14 @@ export const requestEmailVerification = async (req: Request, res: Response) => {
     }
 
     // Check if user already exists
-    const existingUser = role === 'customer'
-      ? await prisma.customer.findFirst({ where: { email } })
-      : await prisma.barber.findFirst({ where: { email } });
+    const existingUser = await prisma.user.findFirst({ 
+      where: { email } 
+    });
 
     if (existingUser) {
       return res.status(400).json({
         status: 'error',
-        message: `${role === 'customer' ? 'Customer' : 'Barber'} with this email already exists`
+        message: 'User with this email already exists'
       });
     }
 
@@ -162,14 +598,14 @@ export const verifyEmail = async (req: Request, res: Response) => {
     const { email, role } = verifiedData;
 
     // Check if user already exists
-    const existingUser = role === 'customer'
-      ? await prisma.customer.findFirst({ where: { email } })
-      : await prisma.barber.findFirst({ where: { email } });
+    const existingUser = await prisma.user.findFirst({ 
+      where: { email } 
+    });
 
     if (existingUser) {
       return res.status(400).json({
         status: 'error',
-        message: `${role === 'customer' ? 'Customer' : 'Barber'} with this email already exists`
+        message: 'User with this email already exists'
       });
     }
 
@@ -184,57 +620,56 @@ export const verifyEmail = async (req: Request, res: Response) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
+    // Create new user with appropriate profile
+    const userCreateData = {
+      email,
+      phoneNumber: userData.phoneNumber || `temp${Date.now()}`,
+      fullName: userData.fullName || 'New User',
+      password: hashedPassword,
+      role,
+      completedOnboarding: false,
+      emailVerified: true,
+    };
+
     let newUser;
 
     if (role === 'customer') {
-      // Create new customer
-      newUser = await prisma.customer.create({
+      newUser = await prisma.user.create({
         data: {
-          email,
-          password: hashedPassword,
-          fullName: userData.fullName || 'New Customer',
-          phoneNumber: userData.phoneNumber || '',
-          // Create a wallet for the customer
-          wallet: {
+          ...userCreateData,
+          customerProfile: {
             create: {
-              balance: 0,
-              currency: 'NGN'
+              wallet: {
+                create: {
+                  balance: 0,
+                  currency: 'NGN'
+                }
+              }
+            }
+          }
+        },
+        include: {
+          customerProfile: {
+            include: {
+              wallet: true
             }
           }
         }
       });
     } else {
-      // Create new barber with a default shop
-      // First, find or create a default shop
-      let defaultShop = await prisma.shop.findFirst({
-        where: { name: 'Default Shop' }
-      });
-      
-      if (!defaultShop) {
-        defaultShop = await prisma.shop.create({
-          data: {
-            name: 'Default Shop',
-            address: 'To be updated',
-            phoneNumber: '00000000000',
-            ownerId: 'system',
-            locationLat: 0,
-            locationLng: 0,
-            openingHours: {}
-          }
-        });
-      }
-      
-      // Create new barber
-      newUser = await prisma.barber.create({
+      newUser = await prisma.user.create({
         data: {
-          email,
-          password: hashedPassword,
-          fullName: userData.fullName || 'New Barber',
-          phoneNumber: userData.phoneNumber || '',
-          isAvailable: true,
-          hourlyRate: userData.hourlyRate || 0,
-          specialties: userData.specialties || [],
-          shopId: defaultShop.id
+          ...userCreateData,
+          barberProfile: {
+            create: {
+              specialties: userData.specialties || [],
+              hourlyRate: userData.hourlyRate || 0,
+              isAvailable: true,
+            }
+          }
+        },
+        include: {
+          barberProfile: true
         }
       });
     }
@@ -249,13 +684,13 @@ export const verifyEmail = async (req: Request, res: Response) => {
     await sendWelcomeEmail(email, newUser.fullName, role);
 
     // Return user data without password
-    const { password: _, ...userData2 } = newUser;
+    const { password: _, ...userWithoutPassword } = newUser;
 
     return res.status(201).json({
       status: 'success',
       message: `${role === 'customer' ? 'Customer' : 'Barber'} registered successfully`,
       data: {
-        user: userData2,
+        user: userWithoutPassword,
         token: authToken
       }
     });
@@ -298,7 +733,7 @@ export const googleAuth = async (req: Request, res: Response) => {
       grant_type: 'authorization_code'
     });
 
-    const { access_token, id_token } = tokenResponse.data;
+    const { access_token } = tokenResponse.data;
 
     // Get user info
     const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -323,79 +758,62 @@ export const googleAuth = async (req: Request, res: Response) => {
     let isNewUser = false;
 
     // Check if user exists
-    if (role === 'customer') {
-      user = await prisma.customer.findFirst({ where: { email } });
-
-      if (!user) {
-        // Create new customer
-        user = await prisma.customer.create({
-          data: {
-            email,
-            fullName: fullName || 'Google User',
-            profileImage: profilePicture,
-            // Generate a random phone number for Google users
-            phoneNumber: `g${Date.now().toString().slice(-10)}`,
-            // Use a random password for Google users
-            password: await bcrypt.hash(Math.random().toString(36).slice(-10), 10),
-            // Create a wallet for the customer
-            wallet: {
-              create: {
-                balance: 0,
-                currency: 'NGN'
-              }
-            }
+    user = await prisma.user.findFirst({ 
+      where: { email },
+      include: {
+        customerProfile: {
+          include: {
+            wallet: true
           }
-        });
-        isNewUser = true;
-      }
-    } else {
-      user = await prisma.barber.findFirst({ where: { email } });
-
-      if (!user) {
-        // Find or create a default shop
-        let defaultShop = await prisma.shop.findFirst({
-          where: { name: 'Default Shop' }
-        });
-        
-        if (!defaultShop) {
-          defaultShop = await prisma.shop.create({
-            data: {
-              name: 'Default Shop',
-              address: 'To be updated',
-              phoneNumber: '00000000000',
-              ownerId: 'system',
-              locationLat: 0,
-              locationLng: 0,
-              openingHours: {}
-            }
-          });
+        },
+        barberProfile: {
+          include: {
+            shop: true
+          }
         }
-        
-        // Create new barber
-        user = await prisma.barber.create({
-          data: {
-            email,
-            fullName: fullName || 'Google User',
-            profileImage: profilePicture,
-            // Generate a random phone number for Google users
-            phoneNumber: `g${Date.now().toString().slice(-10)}`,
-            // Use a random password for Google users
-            password: await bcrypt.hash(Math.random().toString(36).slice(-10), 10),
-            isAvailable: true,
-            hourlyRate: 0, // Default hourly rate
-            specialties: [], // Default specialties
-            shopId: defaultShop.id
-          }
-        });
-        isNewUser = true;
       }
+    });
+
+    if (!user) {
+      // Create new user - only User table, no profiles (follow new pattern)
+      const userCreateData = {
+        email,
+        phoneNumber: `g${Date.now().toString().slice(-10)}`,
+        fullName: fullName || 'Google User',
+        profileImage: profilePicture,
+        password: await bcrypt.hash(Math.random().toString(36).slice(-10), 10),
+        role: null, // Role will be set during onboarding
+        completedOnboarding: false,
+        emailVerified: true,
+      };
+
+      user = await prisma.user.create({
+        data: userCreateData,
+        include: {
+          customerProfile: {
+            include: {
+              wallet: true
+            }
+          },
+          barberProfile: {
+            include: {
+              shop: true
+            }
+          }
+        }
+      });
+      
+      isNewUser = true;
     }
 
     // Generate token
     const token = generateToken({
       id: user.id,
-      role
+      role: user.role || role
     });
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
 
     return res.status(200).json({
       status: 'success',
@@ -403,7 +821,7 @@ export const googleAuth = async (req: Request, res: Response) => {
         ? `${role === 'customer' ? 'Customer' : 'Barber'} registered successfully with Google` 
         : 'Login successful with Google',
       data: {
-        user,
+        user: userWithoutPassword,
         token,
         isNewUser
       }
@@ -413,267 +831,6 @@ export const googleAuth = async (req: Request, res: Response) => {
     return res.status(500).json({
       status: 'error',
       message: 'Failed to authenticate with Google'
-    });
-  }
-};
-
-/**
- * Register a new barber
- */
-export const registerBarber = async (req: Request, res: Response) => {
-  try {
-    const { 
-      phoneNumber, 
-      email, 
-      password, 
-      fullName, 
-      shopId,
-      specialties,
-      hourlyRate
-    } = req.body;
-
-    // Check if user already exists
-    const existingUser = await prisma.barber.findFirst({
-      where: {
-        OR: [
-          { phoneNumber },
-          { email: email || undefined }
-        ]
-      }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Barber with this phone number or email already exists'
-      });
-    }
-
-    // Check if shop exists
-    const shop = await prisma.shop.findUnique({
-      where: { id: shopId }
-    });
-
-    if (!shop) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Shop not found'
-      });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create new barber
-    const newBarber = await prisma.barber.create({
-      data: {
-        phoneNumber,
-        email,
-        password: hashedPassword,
-        fullName,
-        shopId,
-        specialties,
-        hourlyRate,
-        isAvailable: true
-      }
-    });
-
-    // Generate token
-    const token = generateToken({
-      id: newBarber.id,
-      role: 'barber'
-    });
-
-    // Return user data without password
-    const { password: _, ...barberData } = newBarber;
-
-    return res.status(201).json({
-      status: 'success',
-      message: 'Barber registered successfully',
-      data: {
-        user: barberData,
-        token
-      }
-    });
-  } catch (error) {
-    console.error('Error registering barber:', error);
-    return res.status(500).json({
-      status: 'error',
-      message: 'Failed to register barber'
-    });
-  }
-};
-
-/**
- * Login a customer
- */
-export const loginCustomer = async (req: Request, res: Response) => {
-  try {
-    const { phoneNumber, password } = req.body;
-
-    console.log('Login attempt:', { phoneNumber });
-
-    // Check if the input looks like an email
-    const isEmail = phoneNumber.includes('@');
-    
-    console.log('Is email?', isEmail);
-
-    // Find the customer by phoneNumber or email
-    const customer = await prisma.customer.findFirst({
-      where: {
-        OR: [
-          { phoneNumber },
-          { email: phoneNumber } // Try to find by email if phoneNumber is actually an email
-        ]
-      }
-    });
-
-    if (!customer) {
-      console.log('Customer not found');
-      
-      // Log more details to help debug
-      if (isEmail) {
-        const emailCheck = await prisma.customer.findFirst({
-          where: { email: phoneNumber }
-        });
-        console.log('Email check result:', emailCheck ? 'Found' : 'Not found');
-      } else {
-        const phoneCheck = await prisma.customer.findFirst({
-          where: { phoneNumber }
-        });
-        console.log('Phone check result:', phoneCheck ? 'Found' : 'Not found');
-      }
-      
-      return res.status(401).json({
-        status: 'error',
-        message: 'Invalid credentials'
-      });
-    }
-
-    console.log('Customer found:', { id: customer.id });
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, customer.password);
-
-    if (!isPasswordValid) {
-      console.log('Invalid password');
-      return res.status(401).json({
-        status: 'error',
-        message: 'Invalid credentials'
-      });
-    }
-
-    console.log('Password valid, generating token');
-
-    // Generate token
-    const token = generateToken({
-      id: customer.id,
-      role: 'customer'
-    });
-
-    // Return user data without password
-    const { password: _, ...customerData } = customer;
-
-    return res.status(200).json({
-      status: 'success',
-      message: 'Login successful',
-      data: {
-        user: customerData,
-        token
-      }
-    });
-  } catch (error) {
-    console.error('Error logging in customer:', error);
-    return res.status(500).json({
-      status: 'error',
-      message: 'Failed to login'
-    });
-  }
-};
-
-/**
- * Login a barber
- */
-export const loginBarber = async (req: Request, res: Response) => {
-  try {
-    const { phoneNumber, password } = req.body;
-
-    console.log('Barber login attempt:', { phoneNumber });
-
-    // Check if the input looks like an email
-    const isEmail = phoneNumber.includes('@');
-    
-    console.log('Is email?', isEmail);
-
-    // Find the barber by phoneNumber or email
-    const barber = await prisma.barber.findFirst({
-      where: {
-        OR: [
-          { phoneNumber },
-          { email: phoneNumber } // Try to find by email if phoneNumber is actually an email
-        ]
-      }
-    });
-
-    if (!barber) {
-      console.log('Barber not found');
-      
-      // Log more details to help debug
-      if (isEmail) {
-        const emailCheck = await prisma.barber.findFirst({
-          where: { email: phoneNumber }
-        });
-        console.log('Email check result:', emailCheck ? 'Found' : 'Not found');
-      } else {
-        const phoneCheck = await prisma.barber.findFirst({
-          where: { phoneNumber }
-        });
-        console.log('Phone check result:', phoneCheck ? 'Found' : 'Not found');
-      }
-      
-      return res.status(401).json({
-        status: 'error',
-        message: 'Invalid credentials'
-      });
-    }
-
-    console.log('Barber found:', { id: barber.id });
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, barber.password);
-
-    if (!isPasswordValid) {
-      console.log('Invalid password');
-      return res.status(401).json({
-        status: 'error',
-        message: 'Invalid credentials'
-      });
-    }
-
-    console.log('Password valid, generating token');
-
-    // Generate token
-    const token = generateToken({
-      id: barber.id,
-      role: 'barber'
-    });
-
-    // Return user data without password
-    const { password: _, ...barberData } = barber;
-
-    return res.status(200).json({
-      status: 'success',
-      message: 'Login successful',
-      data: {
-        user: barberData,
-        token
-      }
-    });
-  } catch (error) {
-    console.error('Error logging in barber:', error);
-    return res.status(500).json({
-      status: 'error',
-      message: 'Failed to login'
     });
   }
 };

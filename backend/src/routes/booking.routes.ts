@@ -3,7 +3,10 @@ import {
   createBooking,
   getBookingDetails,
   cancelBooking,
-  rateBooking
+  rateBooking,
+  getUserBookings,
+  confirmBooking,
+  completeBooking
 } from '../controllers/booking.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -11,6 +14,11 @@ const router = Router();
 
 // Apply authentication middleware to all booking routes
 router.use(authenticate as any);
+
+// Get user's bookings (both customer and barber)
+router.get('/user', async (req: Request, res: Response) => {
+  await getUserBookings(req, res);
+});
 
 // Create booking (customer only)
 router.post('/', async (req: Request, res: Response) => {
@@ -25,6 +33,16 @@ router.get('/:bookingId', async (req: Request, res: Response) => {
 // Cancel booking (both customer and barber)
 router.patch('/:bookingId/cancel', async (req: Request, res: Response) => {
   await cancelBooking(req, res);
+});
+
+// Confirm booking (barber only)
+router.patch('/:bookingId/confirm', async (req: Request, res: Response) => {
+  await confirmBooking(req, res);
+});
+
+// Complete booking (barber only)
+router.patch('/:bookingId/complete', async (req: Request, res: Response) => {
+  await completeBooking(req, res);
 });
 
 // Rate booking (customer only)

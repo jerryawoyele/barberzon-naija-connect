@@ -3,7 +3,7 @@ import { apiClient } from './api';
 /**
  * Payment service for handling payment-related operations
  */
-export const paymentService = {
+const paymentService = {
   /**
    * Get wallet balance
    * @returns Wallet balance response
@@ -116,3 +116,5 @@ export const paymentService = {
     }
   }
 };
+
+export default paymentService;

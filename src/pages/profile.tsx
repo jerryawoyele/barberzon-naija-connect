@@ -1,23 +1,157 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import Header from '@/components/Header';
-import { User, Edit, Heart, Star, Gift, HelpCircle, Settings, LogOut, Shield, Phone, Mail, MapPin, Camera } from 'lucide-react';
+import EditProfileModal from '@/components/EditProfileModal';
+import { User, Edit, Heart, Star, Gift, HelpCircle, Settings, LogOut, Shield, Phone, Mail, MapPin, Camera, Loader2, AlertCircle, Calendar } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { customerService, CustomerProfile } from '@/services';
 
 const ProfilePage = () => {
-  const [user] = useState({
-    name: 'John Adebayo',
-    email: 'john.adebayo@gmail.com',
-    phone: '+234 803 123 4567',
-    location: 'Victoria Island, Lagos',
-    joinDate: 'March 2024',
-    totalBookings: 12,
-    favoriteShops: 3,
-    totalSpent: 65400,
-    loyaltyPoints: 240,
-    rating: 4.9,
-    avatar: 'photo-1472099645785-5658abf4ff4e'
-  });
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [location, setLocation] = useState({ state: '', country: '' });
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await customerService.getProfile();
+      setProfile(response.data);
+      
+      // Reverse geocode location if available
+      if (response.data.locationLat && response.data.locationLng) {
+        reverseGeocode(response.data.locationLat, response.data.locationLng);
+      }
+    } catch (err: any) {
+      console.error('Error fetching profile:', err);
+      setError(err.message || 'Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+      const data = await response.json();
+      
+      setLocation({
+        state: data.principalSubdivision || data.locality || '',
+        country: data.countryName || ''
+      });
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+      setLocation({
+        state: 'Unknown',
+        country: 'Nigeria'
+      });
+    }
+  };
+
+  const formatJoinDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long'
+    });
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const handleProfileUpdate = (updatedProfile: CustomerProfile) => {
+    setProfile(updatedProfile);
+    if (updatedProfile.locationLat && updatedProfile.locationLng) {
+      reverseGeocode(updatedProfile.locationLat, updatedProfile.locationLng);
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Layout userType="customer">
+        <Header title="Profile" />
+        <div className="pt-24 px-4 py-4">
+          <div className="space-y-4">
+            {/* Profile Header Skeleton */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 animate-pulse">
+              <div className="flex items-center space-x-4">
+                <div className="w-20 h-20 bg-gray-200 rounded-2xl"></div>
+                <div className="flex-1">
+                  <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2 w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            </div>
+            {/* Stats Skeleton */}
+            <div className="grid grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Layout userType="customer">
+        <Header title="Profile" />
+        <div className="pt-24 px-4 py-4">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error loading profile</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+              onClick={fetchProfile}
+              className="px-6 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show empty state if no profile
+  if (!profile) {
+    return (
+      <Layout userType="customer">
+        <Header title="Profile" />
+        <div className="pt-24 px-4 py-4">
+          <div className="text-center py-12">
+            <User className="mx-auto text-gray-400 mb-4" size={48} />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Profile not found</h3>
+            <p className="text-gray-600">Unable to load your profile information.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const stats = customerService.formatCustomerStats(profile);
+  const profileCompletion = customerService.calculateProfileCompletion(profile);
 
   const MenuSection = ({ title, items }: { title: string, items: any[] }) => (
     <div className="mb-6">
@@ -54,15 +188,9 @@ const ProfilePage = () => {
 
   const profileMenuItems = [
     {
-      icon: Edit,
-      title: 'Edit Profile',
-      subtitle: 'Update your personal information',
-      color: 'bg-blue-100 text-blue-600'
-    },
-    {
       icon: Heart,
       title: 'Favorite Shops',
-      subtitle: `${user.favoriteShops} saved shops`,
+      subtitle: `${stats.favoriteShopsCount} saved shops`,
       color: 'bg-red-100 text-red-600'
     },
     {
@@ -74,7 +202,7 @@ const ProfilePage = () => {
     {
       icon: Gift,
       title: 'Loyalty Points',
-      subtitle: `${user.loyaltyPoints} points available`,
+      subtitle: `${stats.loyaltyPoints} points available`,
       color: 'bg-purple-100 text-purple-600'
     }
   ];
@@ -116,36 +244,53 @@ const ProfilePage = () => {
       <div className="pt-24 px-4 py-4">
         {/* Profile Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6 animate-fade-in">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Profile Details</h2>
+            <button 
+              onClick={() => setIsEditModalOpen(true)}
+              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+            >
+              <Edit size={18} />
+            </button>
+          </div>
+          
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <img
-                src={`https://images.unsplash.com/${user.avatar}?w=80&h=80&fit=crop&crop=face`}
-                alt={user.name}
-                className="w-20 h-20 rounded-2xl object-cover shadow-lg"
-              />
-              <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-600 rounded-full flex items-center justify-center border-2 border-white shadow-lg hover:scale-110 transition-transform">
-                <Camera size={14} className="text-white" />
-              </button>
+              <Avatar className="w-20 h-20">
+                <AvatarImage 
+                  src={profile.profileImage} 
+                  alt={profile.fullName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-gradient-to-br from-green-400 to-blue-500 text-white text-xl font-bold">
+                  {profile.fullName ? getInitials(profile.fullName) : <User size={32} />}
+                </AvatarFallback>
+              </Avatar>
             </div>
             
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-              <p className="text-gray-600 text-sm mb-2">Member since {user.joinDate}</p>
+              <h2 className="text-2xl font-bold text-gray-900">{profile.fullName}</h2>
+              <p className="text-gray-600 text-sm mb-2">Member since {formatJoinDate(profile.createdAt)}</p>
               
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+              <div className="flex flex-col text-sm text-gray-600 mb-2">
                 <div className="flex items-center">
                   <Phone size={14} className="mr-1" />
-                  <span>{user.phone}</span>
+                  <span>{profile.phone || profile.phoneNumber || 'Not provided'}</span>
                 </div>
                 <div className="flex items-center">
                   <Mail size={14} className="mr-1" />
-                  <span>{user.email}</span>
+                  <span>{profile.email}</span>
                 </div>
               </div>
               
               <div className="flex items-center text-sm text-gray-600">
                 <MapPin size={14} className="mr-1" />
-                <span>{user.location}</span>
+                <span>
+                  {location.state && location.country 
+                    ? `${location.state}, ${location.country}`
+                    : 'Location not set'
+                  }
+                </span>
               </div>
             </div>
           </div>
@@ -154,10 +299,10 @@ const ProfilePage = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           {[
-            { label: 'Total Bookings', value: user.totalBookings, color: 'text-green-700' },
-            { label: 'Your Rating', value: user.rating, color: 'text-blue-600' },
-            { label: 'Total Spent', value: `₦${user.totalSpent.toLocaleString()}`, color: 'text-purple-600' },
-            { label: 'Loyalty Points', value: user.loyaltyPoints, color: 'text-yellow-600' }
+            { label: 'Total Bookings', value: stats.totalBookings, color: 'text-green-700' },
+            { label: 'Your Rating', value: stats.averageRating.toFixed(1), color: 'text-blue-600' },
+            { label: 'Total Spent', value: `₦${stats.totalSpent.toLocaleString()}`, color: 'text-purple-600' },
+            { label: 'Loyalty Points', value: stats.loyaltyPoints, color: 'text-yellow-600' }
           ].map((stat, index) => (
             <div 
               key={index}
@@ -183,6 +328,16 @@ const ProfilePage = () => {
           <p>Made with ❤️ in Nigeria</p>
         </div>
       </div>
+      
+      {/* Edit Profile Modal */}
+      {profile && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          profile={profile}
+          onUpdate={handleProfileUpdate}
+        />
+      )}
     </Layout>
   );
 };
